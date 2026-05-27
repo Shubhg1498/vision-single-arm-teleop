@@ -19,6 +19,7 @@ setup(
     entry_points={
         "console_scripts": [
             "webcam_teleop_node = vdat_teleop.webcam_teleop_node:main",
+	        "virtual_ee_simulator_node = vdat_teleop.virtual_ee_simulator_node:main",
         ],
     },
 )

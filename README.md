@@ -87,3 +87,24 @@ vision_dual_arm_teleop/
 ├── videos/
 └── data/
 ```
+
+
+## Commands
+
+# Webcam
+cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+ros2 run vdat_teleop webcam_teleop_node
+
+# ee_simulator
+
+#cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+
+ros2 run vdat_teleop virtual_ee_simulator_node
+
