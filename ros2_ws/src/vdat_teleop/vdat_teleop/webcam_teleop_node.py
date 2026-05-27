@@ -10,7 +10,7 @@ from vision_dual_arm_teleop.tracking.hand_tracker import HandTracker
 from vision_dual_arm_teleop.mapping.hand_to_twist import HandToTwistMapper
 
 
-def draw_command_overlay(frame, cmd=None, gripper_close=False):
+def draw_command_overlay(frame, cmd=None, gripper_close=False, depth_mode_text=""):
     h, w, _ = frame.shape
 
     center = (w // 2, h // 2)
@@ -43,7 +43,7 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False):
         cv2.putText(
             frame,
             f"cmd vx={cmd.vx:+.2f} vy={cmd.vy:+.2f} vz={cmd.vz:+.2f}",
-            (20, h - 65),
+            (20, h - 95),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.65,
             (255, 255, 255),
@@ -53,7 +53,7 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False):
         cv2.putText(
             frame,
             "cmd vx=+0.00 vy=+0.00 vz=+0.00",
-            (20, h - 65),
+            (20, h - 95),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.65,
             (255, 255, 255),
@@ -66,10 +66,30 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False):
     cv2.putText(
         frame,
         gripper_text,
-        (20, h - 30),
+        (20, h - 60),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.75,
         gripper_color,
+        2,
+    )
+
+    cv2.putText(
+        frame,
+        depth_mode_text,
+        (20, h - 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 0),
+        2,
+    )
+
+    cv2.putText(
+        frame,
+        "Depth: hold W=forward, S=backward | q=quit",
+        (20, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 0),
         2,
     )
 
@@ -82,9 +102,11 @@ class WebcamTeleopNode(Node):
 
         self.declare_parameter("camera_index", 0)
         self.declare_parameter("publish_rate_hz", 30.0)
+        self.declare_parameter("depth_speed", 0.12)
 
         self.camera_index = self.get_parameter("camera_index").value
         self.publish_rate_hz = self.get_parameter("publish_rate_hz").value
+        self.depth_speed = self.get_parameter("depth_speed").value
 
         self.right_twist_pub = self.create_publisher(
             TwistStamped,
@@ -105,6 +127,9 @@ class WebcamTeleopNode(Node):
         self.tracker = HandTracker()
         self.mapper = HandToTwistMapper()
 
+        self.depth_vx = 0.0
+        self.depth_mode_text = "Depth: STOP"
+
         timer_period = 1.0 / self.publish_rate_hz
         self.timer = self.create_timer(timer_period, self.on_timer)
 
@@ -112,6 +137,10 @@ class WebcamTeleopNode(Node):
         self.get_logger().info("Publishing:")
         self.get_logger().info("  /teleop/right_arm/twist_cmd")
         self.get_logger().info("  /teleop/right_gripper/close")
+        self.get_logger().info("Keyboard depth control:")
+        self.get_logger().info("  W = forward")
+        self.get_logger().info("  S = backward")
+        self.get_logger().info("  release/no key = stop depth")
 
     def publish_stop(self):
         twist_msg = TwistStamped()
@@ -129,6 +158,24 @@ class WebcamTeleopNode(Node):
         self.right_twist_pub.publish(twist_msg)
         self.right_gripper_pub.publish(Bool(data=False))
 
+    def read_keyboard_depth_command(self):
+        key = cv2.waitKey(1) & 0xFF
+
+        if key == ord("q"):
+            self.get_logger().info("Quit requested from OpenCV window.")
+            rclpy.shutdown()
+            return
+
+        if key == ord("w"):
+            self.depth_vx = self.depth_speed
+            self.depth_mode_text = "Depth: FORWARD"
+        elif key == ord("s"):
+            self.depth_vx = -self.depth_speed
+            self.depth_mode_text = "Depth: BACKWARD"
+        else:
+            self.depth_vx = 0.0
+            self.depth_mode_text = "Depth: STOP"
+
     def on_timer(self):
         ok, frame = self.cap.read()
 
@@ -144,12 +191,12 @@ class WebcamTeleopNode(Node):
             self.publish_stop()
 
             frame = self.tracker.draw(frame, results, observations)
-            frame = draw_command_overlay(frame, None, False)
+            frame = draw_command_overlay(frame, None, False, "Depth: STOP")
 
             cv2.putText(
                 frame,
                 "Right hand not detected - STOP",
-                (20, 40),
+                (20, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.8,
                 (0, 0, 255),
@@ -157,11 +204,14 @@ class WebcamTeleopNode(Node):
             )
 
             cv2.imshow("ROS2 Webcam Teleop", frame)
-            cv2.waitKey(1)
+            self.read_keyboard_depth_command()
             return
 
         obs = observations["Right"]
         cmd = self.mapper.map(obs.wrist_xy, obs.gesture.is_pinching)
+
+        # Add keyboard depth command
+        cmd.vx = self.depth_vx
 
         twist_msg = TwistStamped()
         twist_msg.header.stamp = self.get_clock().now().to_msg()
@@ -182,10 +232,15 @@ class WebcamTeleopNode(Node):
         self.right_gripper_pub.publish(gripper_msg)
 
         frame = self.tracker.draw(frame, results, observations)
-        frame = draw_command_overlay(frame, cmd, cmd.gripper_close)
+        frame = draw_command_overlay(
+            frame,
+            cmd,
+            cmd.gripper_close,
+            self.depth_mode_text,
+        )
 
         cv2.imshow("ROS2 Webcam Teleop", frame)
-        cv2.waitKey(1)
+        self.read_keyboard_depth_command()
 
         self.get_logger().info(
             f"vx={cmd.vx:+.2f}, vy={cmd.vy:+.2f}, vz={cmd.vz:+.2f}, "
@@ -210,8 +265,11 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            node.destroy_node()
+            rclpy.shutdown()
+        else:
+            node.destroy_node()
 
 
 if __name__ == "__main__":
