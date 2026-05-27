@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# ROS2
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Data / videos
+data/demos/*.csv
+data/demos/*.npz
+videos/*.mp4
+videos/*.avi
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
