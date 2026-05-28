@@ -17,10 +17,12 @@ setup(
     description="Vision-based teleoperation publisher for robot arm control.",
     license="MIT",
     entry_points={
-        "console_scripts": [
-            	"webcam_teleop_node = vdat_teleop.webcam_teleop_node:main",
-	        "virtual_ee_simulator_node = vdat_teleop.virtual_ee_simulator_node:main",
-		"servo_twist_relay_node = vdat_teleop.servo_twist_relay_node:main",
+    "console_scripts": [
+        "webcam_teleop_node = vdat_teleop.webcam_teleop_node:main",
+        "virtual_ee_simulator_node = vdat_teleop.virtual_ee_simulator_node:main",
+        "servo_twist_relay_node = vdat_teleop.servo_twist_relay_node:main",
+        "scene_objects_node = vdat_teleop.scene_objects_node:main",
+        "gripper_relay_node = vdat_teleop.gripper_relay_node:main",
         ],
     },
 )

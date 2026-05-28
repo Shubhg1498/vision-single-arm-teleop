@@ -1,0 +1,464 @@
+Vision-Based Dual-Arm Teleoperation - Command Reference
+=========================================================
+
+Project path used in this guide:
+  /home/shubham.ghogare/vision_dual_arm_teleop
+
+ROS2 distro used:
+  Jazzy
+
+
+=========================================================
+1. BASIC ENVIRONMENT SETUP
+=========================================================
+
+Source ROS2:
+
+  source /opt/ros/jazzy/setup.bash
+
+Activate Python virtual environment:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop
+  source .venv/bin/activate
+
+Export project path:
+
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+
+=========================================================
+2. BUILD ROS2 WORKSPACE
+=========================================================
+
+Build the workspace:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+  colcon build --symlink-install
+  source install/setup.bash
+
+Check available package executables:
+
+  ros2 pkg executables vdat_teleop
+
+Expected output:
+
+  vdat_teleop webcam_teleop_node
+  vdat_teleop virtual_ee_simulator_node
+  vdat_teleop servo_twist_relay_node
+
+
+=========================================================
+3. STANDALONE WEBCAM HAND TRACKING
+=========================================================
+
+Run webcam hand tracking only:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop
+
+  source .venv/bin/activate
+  export PYTHONPATH=$PWD:$PYTHONPATH
+
+  python scripts/run_hand_tracking.py
+
+Run with CSV recording:
+
+  python scripts/run_hand_tracking.py --record
+
+Output CSV:
+
+  data/demos/webcam_demo.csv
+
+Run with external camera:
+
+  python scripts/run_hand_tracking.py --camera 1
+
+
+=========================================================
+4. ROS2 WEBCAM TELEOPERATION NODE
+=========================================================
+
+Start the webcam teleoperation node:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+  ros2 run vdat_teleop webcam_teleop_node
+
+Published topics:
+
+  /teleop/right_arm/twist_cmd
+  /teleop/right_gripper/close
+
+Controls:
+
+  Right hand left/right  -> robot y velocity
+  Right hand up/down     -> robot z velocity
+  W key                  -> robot x forward
+  S key                  -> robot x backward
+  Pinch                  -> close gripper
+  Release pinch          -> open gripper
+  q                      -> quit webcam GUI
+
+Important:
+
+  Click on the OpenCV webcam window before pressing W, S, or q.
+
+
+=========================================================
+5. INSPECT ROS2 TELEOPERATION TOPICS
+=========================================================
+
+Open a new terminal:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+
+Check teleop topics:
+
+  ros2 topic list | grep teleop
+
+Echo twist command:
+
+  ros2 topic echo /teleop/right_arm/twist_cmd
+
+Echo gripper command:
+
+  ros2 topic echo /teleop/right_gripper/close
+
+Expected gripper output while pinching:
+
+  data: true
+
+Expected gripper output when released:
+
+  data: false
+
+
+=========================================================
+6. VIRTUAL END-EFFECTOR SIMULATOR
+=========================================================
+
+This simulates a gripper point in 3D space using webcam teleoperation commands.
+
+Terminal 1 - Start webcam teleop:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+  ros2 run vdat_teleop webcam_teleop_node
+
+Terminal 2 - Start virtual end-effector simulator:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+
+  ros2 run vdat_teleop virtual_ee_simulator_node --ros-args -p frame_id:=map
+
+Terminal 3 - Start RViz:
+
+  source /opt/ros/jazzy/setup.bash
+  rviz2
+
+RViz settings:
+
+  Fixed Frame: map
+  Add -> Marker
+  Topic: /teleop/right_arm/ee_marker
+
+Published topics:
+
+  /teleop/right_arm/ee_pose
+  /teleop/right_arm/ee_marker
+
+Inspect virtual end-effector pose:
+
+  ros2 topic echo /teleop/right_arm/ee_pose
+
+
+=========================================================
+7. PANDA ARM TELEOPERATION WITH MOVEIT SERVO
+=========================================================
+
+This is the main demo mode.
+
+Terminal 1 - Launch Panda MoveIt Servo demo:
+
+  source /opt/ros/jazzy/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws/install/setup.bash
+
+  ros2 launch moveit_servo demo_ros_api.launch.py
+
+After RViz opens, switch Servo to Twist mode in another terminal:
+
+  source /opt/ros/jazzy/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws/install/setup.bash
+
+  ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
+
+
+Terminal 2 - Start webcam teleop:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+  ros2 run vdat_teleop webcam_teleop_node
+
+
+Terminal 3 - Start Servo twist relay:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+
+  ros2 run vdat_teleop servo_twist_relay_node
+
+Run relay with lower motion scale if motion is too fast:
+
+  ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.15
+
+Run relay with higher motion scale if motion is too slow:
+
+  ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.6
+
+
+=========================================================
+8. MOVEIT SERVO DEBUGGING COMMANDS
+=========================================================
+
+Check if webcam commands are being published:
+
+  ros2 topic echo /teleop/right_arm/twist_cmd
+
+Check if relay commands are reaching MoveIt Servo:
+
+  ros2 topic echo /servo_node/delta_twist_cmds
+
+Check Servo status:
+
+  ros2 topic echo /servo_node/status
+
+Check Servo-related services:
+
+  ros2 service list | grep servo
+
+Check Servo command topic parameter:
+
+  ros2 param get /servo_node moveit_servo.cartesian_command_in_topic
+
+Try a manual Servo command:
+
+  ros2 topic pub /servo_node/delta_twist_cmds geometry_msgs/msg/TwistStamped "
+  header:
+    frame_id: panda_link0
+  twist:
+    linear:
+      x: 0.05
+      y: 0.0
+      z: 0.0
+    angular:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+  " -r 10
+
+Stop the manual command:
+
+  Ctrl+C
+
+
+=========================================================
+9. CHECK MOVEIT / PANDA PACKAGES
+=========================================================
+
+Check if MoveIt Servo exists:
+
+  source /opt/ros/jazzy/setup.bash
+  ros2 pkg prefix moveit_servo
+
+Check if Panda config exists:
+
+  ros2 pkg prefix moveit_resources_panda_moveit_config
+
+Check MoveIt resource packages:
+
+  ros2 pkg list | grep moveit_resources
+
+
+=========================================================
+10. GIT COMMANDS
+=========================================================
+
+Check repo status:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop
+  git status
+
+Add, commit, and push:
+
+  git add .
+  git commit -m "Describe the milestone"
+  git push
+
+Suggested commit messages:
+
+  git commit -m "Add webcam hand tracking and pinch gesture detection"
+  git commit -m "Add ROS2 webcam teleoperation publisher"
+  git commit -m "Add virtual end-effector simulator and RViz marker visualization"
+  git commit -m "Add keyboard depth control for teleoperation"
+  git commit -m "Connect webcam teleop commands to Panda MoveIt Servo"
+
+
+=========================================================
+11. COMMON ISSUES
+=========================================================
+
+Issue:
+  ModuleNotFoundError: No module named 'vision_dual_arm_teleop'
+
+Fix:
+
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+
+Issue:
+  AttributeError: module 'mediapipe' has no attribute 'solutions'
+
+Fix:
+
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  pip uninstall -y mediapipe
+  pip install mediapipe==0.10.14
+
+
+Issue:
+  colcon: command not found
+
+Fix inside venv:
+
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  pip install colcon-common-extensions
+
+
+Issue:
+  ros2 run vdat_teleop webcam_teleop_node
+  No executable found
+
+Fix:
+
+  Make sure setup.cfg exists in:
+    ros2_ws/src/vdat_teleop/setup.cfg
+
+  setup.cfg content:
+
+    [develop]
+    script_dir=$base/lib/vdat_teleop
+
+    [install]
+    install_scripts=$base/lib/vdat_teleop
+
+  Then clean rebuild:
+
+    cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+    rm -rf build install log
+    source /opt/ros/jazzy/setup.bash
+    colcon build --symlink-install
+    source install/setup.bash
+
+
+Issue:
+  RViz error: subscribing empty topic name
+
+Fix:
+
+  In RViz Marker display, set topic manually:
+    /teleop/right_arm/ee_marker
+
+  Set Fixed Frame:
+    map
+
+
+Issue:
+  moveit_resources_panda_moveit_config not found
+
+Fix with apt:
+
+  sudo apt update
+  sudo apt install ros-jazzy-moveit-resources-panda-moveit-config
+  sudo apt install ros-jazzy-moveit-resources
+
+Alternative source build:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws/src
+  git clone https://github.com/moveit/moveit_resources.git -b jazzy
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+  source /opt/ros/jazzy/setup.bash
+  colcon build --symlink-install
+  source install/setup.bash
+
+
+=========================================================
+12. FINAL DEMO RUN ORDER
+=========================================================
+
+Use this order for the final video demo.
+
+Terminal 1:
+
+  source /opt/ros/jazzy/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws/install/setup.bash
+  ros2 launch moveit_servo demo_ros_api.launch.py
+
+Terminal 2:
+
+  source /opt/ros/jazzy/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws/install/setup.bash
+  ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
+
+Terminal 3:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+  source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+  export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+  ros2 run vdat_teleop webcam_teleop_node
+
+Terminal 4:
+
+  cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+  source /opt/ros/jazzy/setup.bash
+  source install/setup.bash
+  ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.35
+
+Demo controls:
+
+  Move right hand left/right  -> Panda moves sideways
+  Move right hand up/down     -> Panda moves up/down
+  W                           -> Panda moves forward
+  S                           -> Panda moves backward
+  Pinch                       -> gripper close signal
+  Release pinch               -> gripper open signal
+  q                           -> quit webcam GUI
