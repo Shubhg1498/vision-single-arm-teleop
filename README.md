@@ -1,57 +1,82 @@
-# Vision-Based Dual-Arm Teleoperation and Demonstration Collection for Robotic Manipulation
+# Vision-Based Dual-Arm Teleoperation for Robotic Manipulation
 
-This project uses a webcam or external camera to track human hand motion and gestures, map them to robot arm teleoperation commands, and record demonstrations for future imitation learning or reinforcement learning.
+Webcam hand tracking drives a simulated Franka Panda through ROS 2, MoveIt Servo, and Gazebo Harmonic. The pipeline maps human hand motion and gestures to end-effector velocity commands, with optional demonstration recording for imitation learning.
 
-## MVP Goal
+**Stack:** Ubuntu 24.04 · ROS 2 Jazzy · MoveIt 2 · Gazebo Harmonic · MediaPipe · OpenCV
 
-Webcam hand tracking → gesture detection → single-arm teleoperation command stream → gripper command → demonstration recording.
+---
 
-## Final Demo Goal
+## Architecture
 
-A short video showing:
-1. Real-time hand tracking.
-2. Pinch gesture detection.
-3. Hand motion mapped to robot end-effector commands.
-4. Simulated robot arm moving using teleoperation commands.
-5. Pick-and-place attempt.
-6. Demonstration data recorded to CSV.
+```
+Webcam
+  → MediaPipe HandTracker + GestureDetector
+  → HandToTwistMapper (normalized velocity + deadband + smoothing)
+  → webcam_teleop_node          [/teleop/right_arm/twist_cmd, /teleop/right_gripper/close]
+  → servo_twist_relay_node      [rate limiting, acceleration cap, deadman timeout]
+  → MoveIt Servo                [collision checking, singularity handling]
+  → ros2_control / gz_ros2_control
+  → Gazebo Harmonic             [Panda + table + cube, real physics]
 
-## Project Roadmap
+Parallel: scene cameras → ros_gz_image → scene_camera_viewer_node (workspace views)
+          pinch → gripper_relay_node → GripperCommand action → simulated gripper
+```
 
-### Day 1
-- Create repository.
-- Implement webcam hand tracking.
-- Detect left/right hands.
-- Compute pinch/open gesture.
-- Save first demo video.
+Two simulation backends share the same teleop nodes:
 
-### Day 2
-- Convert hand movement into normalized velocity commands.
-- Add smoothing, deadband, workspace clipping.
-- Create command visualization.
+| Launch file | Backend | Physics |
+|-------------|---------|---------|
+| `demo_pick_place.launch.py` | MoveIt fake hardware + RViz | Collision attach (fake grasp) |
+| `demo_pick_place_gazebo.launch.py` | Gazebo + gz_ros2_control | Real contact, friction, gravity |
 
-### Day 3
-- Create ROS2 teleoperation publisher.
-- Publish right/left hand commands and gripper state.
+---
 
-### Day 4
-- Connect to single-arm simulation using MoveIt Servo.
-- Control end-effector velocity from webcam commands.
+## What is implemented
 
-### Day 5
-- Add gripper control.
-- Start demonstration recorder.
+### Vision and command mapping (`vision_dual_arm_teleop/`)
 
-### Day 6
-- Extend to dual-arm command publishing.
-- Record pick-and-place demonstrations.
+- **Hand tracking** — MediaPipe Hands, 21 landmarks per hand, left/right classification
+- **Gesture detection** — pinch vs open via thumb–index distance threshold
+- **Hand-to-twist mapping** — wrist position → normalized `(vy, vz)` velocity; deadband around image center; low-pass filter to reduce jitter
+- **Demo recorder** — CSV logging of observations and commands for IL/RL datasets
 
-### Day 7
-- Polish README.
-- Record final video.
-- Add limitations and future work section.
+### ROS 2 teleop nodes (`vdat_teleop`)
 
-## Quick Start: Webcam Tracking Only
+| Node | Role |
+|------|------|
+| `webcam_teleop_node` | Camera capture, hand tracking, twist + gripper publishing, keyboard depth (W/S) |
+| `servo_twist_relay_node` | Scales, smooths, and rate-limits commands before MoveIt Servo |
+| `gripper_relay_node` | Maps pinch to `GripperCommand` action for Gazebo gripper controller |
+| `scene_camera_viewer_node` | Multi-view OpenCV display of Gazebo scene cameras |
+| `demo_manipulation_object_node` | RViz-only fake grasp via planning scene attach (legacy) |
+
+### Gazebo simulation (`vdat_gazebo`)
+
+- Panda URDF with **gz_ros2_control** (`GazeboSimSystem`) — arm + gripper on one controller manager inside Gazebo
+- Pick-place world: table, dynamic cube, tuned finger/cube friction
+- Three fixed **scene cameras** (overview, side, gripper) bridged to ROS via `ros_gz_image`
+
+---
+
+## Key learnings
+
+**MoveIt Servo as the control layer.** End-effector teleoperation maps naturally to `TwistStamped` inputs. Servo handles Jacobian-based velocity control, self-collision checking, and singularity slowdown — the vision layer only needs to publish clean velocity commands.
+
+**Fake hardware vs real physics.** The RViz demo uses `mock_components/GenericSystem` and attaches objects in the planning scene on proximity — fast to iterate, but no contact physics. Gazebo requires a single `ros2_control` instance via `gz_ros2_control`; running a separate `ros2_control_node` alongside Gazebo causes conflicts.
+
+**Gripper controller interface matters.** The Panda hand uses `position_controllers/GripperActionController`, not joint trajectories. Publishing `JointTrajectory` to the gripper silently fails; the fix was a `GripperCommand` action client in `gripper_relay_node`.
+
+**Teleop UX for sim.** Pinch freezes hand-driven motion so the operator can enter the camera frame without moving the arm. A keyboard **transport latch (C)** decouples gripper state from hand open/close so the cube can be carried while repositioning. Depth (W/S) is disabled during pinch to avoid accidental motion.
+
+**Isaac Sim was not viable on this hardware.** Blackwell GPU + driver 595 caused segfaults in Isaac Sim 5.1. Gazebo Harmonic integrates natively with ROS 2 Jazzy via apt packages and runs on modest GPU requirements.
+
+**Workspace sourcing.** `ament_python` packages in an isolated colcon layout need `source_ws.bash` — `install/setup.bash` alone does not always register `vdat_teleop` on `AMENT_PREFIX_PATH`.
+
+---
+
+## Quick start
+
+### 1. Python environment (hand tracking only)
 
 ```bash
 python3 -m venv .venv
@@ -61,48 +86,19 @@ pip install -r requirements.txt
 python scripts/run_hand_tracking.py
 ```
 
-Press `q` to quit.
-
-## Repository Structure
-
-```text
-vision_dual_arm_teleop/
-├── vision_dual_arm_teleop/
-│   ├── tracking/
-│   │   ├── hand_tracker.py
-│   │   └── gesture_detector.py
-│   ├── mapping/
-│   │   └── hand_to_twist.py
-│   └── recording/
-│       └── demo_recorder.py
-├── ros2_ws/
-│   ├── source_ws.bash          # source this after build (not install/setup.bash alone)
-│   └── src/
-│       ├── vdat_gazebo/        # Gazebo Panda + pick-place world
-│       └── vdat_teleop/        # teleop nodes + launch files
-├── docs/
-├── gazebo/                     # Gazebo worlds + simulation assets
-├── scripts/
-├── videos/
-└── data/
-```
-
-## Gazebo Simulation (real physics)
-
-Install once:
+### 2. Full Gazebo teleop demo
 
 ```bash
+# One-time
 bash scripts/install_gazebo.sh
-```
 
-**Run the full teleop demo** (Gazebo + MoveIt Servo + webcam + gripper):
-
-```bash
-cd ~/vision_dual_arm_teleop/ros2_ws
+# Every session
+cd ros2_ws
 source /opt/ros/jazzy/setup.bash
-source ~/vision_dual_arm_teleop/.venv/bin/activate
+source ../.venv/bin/activate
+colcon build --packages-select vdat_gazebo vdat_teleop
 source source_ws.bash
-export VDAT_REPO=~/vision_dual_arm_teleop
+export VDAT_REPO=$(pwd)/..
 export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
@@ -110,27 +106,67 @@ ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 
 Wait ~17 s for startup. Press **Play** in Gazebo.
 
-**Windows:** webcam teleop (hand control) + **Scene Cameras** (3-view workspace monitor).
+**Controls**
 
-**Controls:** open hand = move · pinch = freeze + close · **C** = transport latch · **W/S** = depth (when not pinching)
+| Input | Action |
+|-------|--------|
+| Open hand | Move arm (XY from wrist) |
+| Pinch | Freeze arm + close gripper |
+| W / S | Depth forward / back (when not pinching) |
+| C | Toggle transport latch (hold object while moving) |
 
-Optional: `show_scene_cameras:=false` or `use_rviz:=false`
+**Windows:** ROS2 Webcam Teleop (hand control) + Scene Cameras (3-view monitor)
 
-## Commands (RViz fake-hardware demo)
+Optional: `show_scene_cameras:=false` · `use_rviz:=false`
 
-# Webcam
-cd ~/vision_dual_arm_teleop/ros2_ws
-source /opt/ros/jazzy/setup.bash
-source source_ws.bash
-source ~/vision_dual_arm_teleop/.venv/bin/activate
-export PYTHONPATH=~/vision_dual_arm_teleop:$PYTHONPATH
+### 3. RViz-only demo (fake hardware)
 
-ros2 run vdat_teleop webcam_teleop_node
+```bash
+cd ros2_ws && source /opt/ros/jazzy/setup.bash && source source_ws.bash
+source ../.venv/bin/activate
+export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 
-# ee_simulator
+ros2 launch vdat_teleop demo_pick_place.launch.py
+```
 
-source /opt/ros/jazzy/setup.bash
-source ~/vision_dual_arm_teleop/ros2_ws/source_ws.bash
+---
 
-ros2 run vdat_teleop virtual_ee_simulator_node
+## Repository layout
 
+```text
+vision_dual_arm_teleop/
+├── vision_dual_arm_teleop/     # Python: tracking, mapping, recording
+├── ros2_ws/
+│   ├── source_ws.bash          # workspace setup (use after colcon build)
+│   └── src/
+│       ├── vdat_teleop/        # ROS 2 teleop nodes + launch files
+│       └── vdat_gazebo/        # Gazebo world, Panda URDF, controllers
+├── docs/                       # Install guides, architecture, simulation notes
+├── scripts/                    # install_gazebo.sh, run_hand_tracking.py
+└── gazebo/                     # World assets (reference copy)
+```
+
+---
+
+## Documentation
+
+| Doc | Contents |
+|-----|----------|
+| [docs/gazebo_install.md](docs/gazebo_install.md) | Gazebo + ROS 2 install and troubleshooting |
+| [docs/gazebo_simulation.md](docs/gazebo_simulation.md) | Architecture, scene cameras, pick-and-place workflow |
+| [docs/simulation_choice.md](docs/simulation_choice.md) | RViz vs Gazebo decision record |
+| [docs/version_1.md](docs/version_1.md) | Detailed project guide (math, nodes, Q&A) |
+
+---
+
+## Hardware tested
+
+- Ubuntu 24.04, ROS 2 Jazzy
+- NVIDIA RTX PRO 2000 (Blackwell), driver 595
+- Built-in / USB webcam for hand tracking
+
+---
+
+## License
+
+MIT
