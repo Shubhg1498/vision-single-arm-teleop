@@ -28,7 +28,7 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False, depth_mode_text="
 
         # vy controls left/right image direction
         # vz controls up/down image direction
-        end_x = int(center[0] + cmd.vy * arrow_scale)
+        end_x = int(center[0] - cmd.vy * arrow_scale)
         end_y = int(center[1] - cmd.vz * arrow_scale)
 
         cv2.arrowedLine(

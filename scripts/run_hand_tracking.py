@@ -23,7 +23,7 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False):
     if cmd is not None:
         # vy maps to horizontal arrow, vz maps to vertical arrow
         arrow_scale = 350
-        end_x = int(center[0] + cmd.vy * arrow_scale)
+        end_x = int(center[0] - cmd.vy * arrow_scale)
         end_y = int(center[1] - cmd.vz * arrow_scale)
 
         cv2.arrowedLine(

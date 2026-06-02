@@ -33,8 +33,8 @@ class HandToTwistMapper:
     - image x right
     - image y down
 
-    Robot command convention used for MVP:
-    - hand right/left -> robot +/- y
+    Robot command convention (base_link / panda_link0):
+    - hand right/left -> robot right/left (+y is robot-left, so lateral sign is negated)
     - hand up/down -> robot +/- z
     - depth is initially 0.0 until we add hand-size depth proxy
     """
@@ -56,7 +56,7 @@ class HandToTwistMapper:
         dx = self._apply_deadband(x - 0.5)
         dy = self._apply_deadband(0.5 - y)
 
-        vy = max(-self.max_speed, min(self.max_speed, dx * self.max_speed * 2.0))
+        vy = max(-self.max_speed, min(self.max_speed, -dx * self.max_speed * 2.0))
         vz = max(-self.max_speed, min(self.max_speed, dy * self.max_speed * 2.0))
 
         return TeleopCommand(
