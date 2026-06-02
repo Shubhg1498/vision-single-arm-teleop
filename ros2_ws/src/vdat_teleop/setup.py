@@ -23,6 +23,8 @@ setup(
         "servo_twist_relay_node = vdat_teleop.servo_twist_relay_node:main",
         "scene_objects_node = vdat_teleop.scene_objects_node:main",
         "gripper_relay_node = vdat_teleop.gripper_relay_node:main",
+        "demo_pick_object_node = vdat_teleop.demo_pick_object_node:main",
+        "demo_manipulation_object_node = vdat_teleop.demo_manipulation_object_node:main",
         ],
     },
 )

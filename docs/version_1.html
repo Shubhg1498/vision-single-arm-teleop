@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Vision Dual-Arm Teleoperation — Version 1</title>
+<style>
+  @page { margin: 2cm; }
+  body {
+    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  h1 { font-size: 22pt; border-bottom: 2px solid #333; padding-bottom: 8px; margin-top: 0; }
+  h2 { font-size: 16pt; margin-top: 24px; color: #222; page-break-after: avoid; }
+  h3 { font-size: 13pt; margin-top: 18px; page-break-after: avoid; }
+  pre {
+    background: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px 12px;
+    font-size: 9pt;
+    line-height: 1.35;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    page-break-inside: avoid;
+  }
+  code {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 9.5pt;
+    background: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  pre code { background: none; padding: 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px 10px;
+    text-align: left;
+  }
+  th { background: #e8e8e8; font-weight: 600; }
+  tr:nth-child(even) td { background: #fafafa; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
+  ul { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  p { margin: 8px 0; }
+  strong { color: #111; }
+</style>
+</head>
+<body>
+<h1>Vision Dual-Arm Teleoperation — Complete Project Guide (Version 1)</h1>
+
+<p>This document explains the <strong>main aim</strong>, <strong>architecture</strong>, <strong>mathematics</strong>, and <strong>every major component</strong> so you can answer questions about this project confidently.</p>
+
+<hr>
+
+<h2>1. Main Aim</h2>
+
+<p><strong>Vision-Based Dual-Arm Teleoperation and Demonstration Collection for Robotic Manipulation</strong></p>
+
+<p>The project turns <strong>human hand motion captured by a webcam</strong> into <strong>robot arm control commands</strong>, with the long-term goal of recording demonstrations for <strong>imitation learning (IL)</strong> or <strong>reinforcement learning (RL)</strong>.</p>
+
+<h3>MVP (Minimum Viable Product)</h3>
+
+<pre><code class="">
+Webcam → Hand tracking → Gesture detection → Velocity commands → Gripper open/close → CSV recording
+</code></pre>
+
+<h3>Final Demo Goal</h3>
+
+<p>A video showing:</p>
+<p>1. Real-time hand tracking</p>
+<p>2. Pinch gesture detection</p>
+<p>3. Hand motion mapped to end-effector velocity</p>
+<p>4. Simulated robot arm moving (Panda via MoveIt Servo)</p>
+<p>5. Pick-and-place attempt</p>
+<p>6. Demonstration data saved to CSV</p>
+
+<h3>Why This Architecture?</h3>
+
+<table>
+<tr><th>Choice</th><th>Reason</th></tr>
+<tr><td><strong>MediaPipe Hands</strong></td><td>Fast, no GPU required, 21 landmarks per hand</td></tr>
+<tr><td><strong>Velocity (twist) control</strong></td><td>Natural for continuous teleoperation; MoveIt Servo accepts TwistStamped</td></tr>
+<tr><td><strong>ROS 2 Jazzy</strong></td><td>Industry-standard middleware; integrates with MoveIt 2</td></tr>
+<tr><td><strong>Franka Panda first</strong></td><td>Well-documented MoveIt config; good for gripper demos</td></tr>
+<tr><td><strong>MoveIt Servo over Isaac Sim</strong></td><td>Faster setup for a 1-week demo; collision checking built-in</td></tr>
+</table>
+
+<hr>
+
+<h2>2. High-Level Architecture</h2>
+
+<pre><code class="">
+┌────────────── Vision Layer ──────────────┐
+│ Webcam → HandTracker → GestureDetector   │
+│        → HandToTwistMapper → DemoRecorder│
+└──────────────────┬───────────────────────┘
+                   │ ROS 2 topics
+┌──────────────────▼───────────────────────┐
+│ webcam_teleop_node                       │
+│   ├→ virtual_ee_simulator_node (simple)  │
+│   ├→ servo_twist_relay_node → MoveIt     │
+│   ├→ gripper_relay_node → Panda gripper  │
+│   └→ demo_manipulation_object_node       │
+└──────────────────┬───────────────────────┘
+                   ▼
+         Franka Panda in RViz (MoveIt Servo)
+</code></pre>
+
+<hr>
+
+<h2>3. Repository Structure</h2>
+
+<pre><code class="">
+vision_dual_arm_teleop/
+├── vision_dual_arm_teleop/     # Core Python library (vision + mapping)
+│   ├── tracking/
+│   │   ├── hand_tracker.py     # MediaPipe wrapper
+│   │   └── gesture_detector.py # Pinch/open detection
+│   ├── mapping/
+│   │   └── hand_to_twist.py    # Hand position → robot velocity
+│   └── recording/
+│       └── demo_recorder.py    # CSV demo logging
+├── ros2_ws/src/vdat_teleop/    # ROS 2 package
+│   └── vdat_teleop/
+│       ├── webcam_teleop_node.py
+│       ├── virtual_ee_simulator_node.py
+│       ├── servo_twist_relay_node.py
+│       ├── gripper_relay_node.py
+│       ├── scene_objects_node.py
+│       └── demo_manipulation_object_node.py
+├── scripts/run_hand_tracking.py  # Standalone (no ROS)
+└── data/demos/                   # Recorded CSV files
+</code></pre>
+
+<p><strong>Important:</strong> The core library lives outside the ROS package. ROS nodes import it via PYTHONPATH:</p>
+
+<pre><code class="bash">
+export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+</code></pre>
+
+<hr>
+
+<h2>4. Vision Layer — How Hand Tracking Works</h2>
+
+<h3>4.1 MediaPipe Hands</h3>
+
+<p>MediaPipe detects up to <strong>2 hands</strong> and outputs <strong>21 3D landmarks</strong> per hand in <strong>normalized image coordinates</strong>:</p>
+
+<ul><li>x, y in [0, 1] — fraction of image width/height</li>
+<li>z — depth relative to wrist (not metric depth)</li>
+</ul>
+<p>Key landmark indices used in this project:</p>
+
+<table>
+<tr><th>Index</th><th>Landmark</th></tr>
+<tr><td>0</td><td>Wrist</td></tr>
+<tr><td>4</td><td>Thumb tip</td></tr>
+<tr><td>8</td><td>Index tip</td></tr>
+<tr><td>12</td><td>Middle tip</td></tr>
+<tr><td>16</td><td>Ring tip</td></tr>
+<tr><td>20</td><td>Pinky tip</td></tr>
+</table>
+
+<p>The <code>HandTracker</code> class wraps MediaPipe. Each frame: convert BGR→RGB, run MediaPipe, extract wrist (landmark 0) and index tip (landmark 8), run gesture detection, and label hands as &quot;Left&quot; or &quot;Right&quot;.</p>
+
+<p><strong>Note:</strong> The frame is <strong>horizontally flipped</strong> (<code>cv2.flip(frame, 1)</code>) so movement feels mirror-natural to the operator.</p>
+
+<p><strong>Currently only the right hand</strong> is used for teleoperation (<code>observations[&quot;Right&quot;]</code>).</p>
+
+<h3>4.2 Gesture Detection — Pinch Math</h3>
+
+<p>Pinch is detected by <strong>Euclidean distance</strong> between thumb tip (landmark 4) and index tip (landmark 8):</p>
+
+<pre><code class="">
+d_pinch = sqrt((x4 - x8)^2 + (y4 - y8)^2 + (z4 - z8)^2)
+</code></pre>
+
+<p><strong>Pinch condition:</strong> is_pinching = True if d_pinch &lt; 0.055 (normalized coordinate units).</p>
+
+<p>An additional metric, <code>hand_open_score</code>, is the average wrist-to-fingertip distance across index/middle/ring/pinky — useful for future open-hand detection but not currently used for control.</p>
+
+<hr>
+
+<h2>5. Mapping Layer — Hand Position → Robot Velocity</h2>
+
+<p>This is the core <strong>teleoperation mapping</strong>. The design uses <strong>velocity control</strong> (not absolute position mapping), which is more robust to calibration errors.</p>
+
+<h3>5.1 Coordinate Conventions</h3>
+
+<p><strong>Camera/image frame:</strong></p>
+<ul><li>x increases to the <strong>right</strong></li>
+<li>y increases <strong>downward</strong></li>
+<li>Origin at top-left corner</li>
+</ul>
+<p><strong>Robot command frame (MVP):</strong></p>
+<ul><li>Hand left/right → robot ±vy (lateral)</li>
+<li>Hand up/down → robot ±vz (vertical)</li>
+<li>Depth (vx) → keyboard W/S (not yet from hand size)</li>
+</ul>
+<h3>5.2 Low-Pass Filter (Smoothing)</h3>
+
+<p>Raw wrist positions are noisy. An exponential moving average filter is applied:</p>
+
+<pre><code class="">
+x_filt(t) = alpha * x_raw(t) + (1 - alpha) * x_filt(t-1)
+</code></pre>
+
+<p>With alpha = 0.25, this is a <strong>first-order low-pass filter</strong>. Lower alpha = smoother but more lag.</p>
+
+<h3>5.3 Deadband</h3>
+
+<p>Small hand movements near center should not move the robot:</p>
+
+<pre><code class="">
+deadband(v) = 0   if |v| &lt; 0.06
+            = v   otherwise
+</code></pre>
+
+<p>Applied after centering:</p>
+
+<pre><code class="">
+dx = deadband(x_wrist - 0.5)
+dy = deadband(0.5 - y_wrist)
+</code></pre>
+
+<p>Note: y is inverted (0.5 - y) because image y goes down but robot z goes up.</p>
+
+<h3>5.4 Velocity Scaling and Clipping</h3>
+
+<pre><code class="">
+vy = clip(dx * v_max * 2, -v_max, v_max)
+vz = clip(dy * v_max * 2, -v_max, v_max)
+</code></pre>
+
+<p>Default v_max = 0.20 m/s. The factor of 2 maps full hand displacement from center (0.5) to max speed at image edges.</p>
+
+<h3>5.5 Output: TeleopCommand</h3>
+
+<pre><code class="">
+TeleopCommand:
+  vx: float   # forward/back (keyboard W/S in ROS node)
+  vy: float   # left/right (from hand)
+  vz: float   # up/down (from hand)
+  gripper_close: bool  # from pinch gesture
+</code></pre>
+
+<hr>
+
+<h2>6. Demonstration Recording</h2>
+
+<p><code>DemoRecorder</code> logs every frame to CSV for future IL/RL training:</p>
+
+<table>
+<tr><th>Column</th><th>Description</th></tr>
+<tr><td>time</td><td>Unix timestamp</td></tr>
+<tr><td>handedness</td><td>&quot;Right&quot; or &quot;Left&quot;</td></tr>
+<tr><td>wrist_x, wrist_y</td><td>Normalized wrist position</td></tr>
+<tr><td>pinch_distance, is_pinching</td><td>Gesture state</td></tr>
+<tr><td>cmd_vx, cmd_vy, cmd_vz</td><td>Output velocity commands</td></tr>
+<tr><td>gripper_close</td><td>0 or 1</td></tr>
+</table>
+
+<p>Run with: <code>python scripts/run_hand_tracking.py --record</code></p>
+
+<hr>
+
+<h2>7. ROS 2 Layer — Nodes and Topics</h2>
+
+<h3>7.1 Topic Map</h3>
+
+<table>
+<tr><th>Topic</th><th>Type</th><th>Publisher</th><th>Subscriber(s)</th></tr>
+<tr><td>/teleop/right_arm/twist_cmd</td><td>TwistStamped</td><td>webcam_teleop_node</td><td>virtual_ee_simulator_node, servo_twist_relay_node</td></tr>
+<tr><td>/teleop/right_gripper/close</td><td>Bool</td><td>webcam_teleop_node</td><td>gripper_relay_node, demo_manipulation_object_node</td></tr>
+<tr><td>/teleop/right_arm/ee_pose</td><td>PoseStamped</td><td>virtual_ee_simulator_node</td><td>RViz</td></tr>
+<tr><td>/teleop/right_arm/ee_marker</td><td>Marker</td><td>virtual_ee_simulator_node</td><td>RViz</td></tr>
+<tr><td>/servo_node/delta_twist_cmds</td><td>TwistStamped</td><td>servo_twist_relay_node</td><td>MoveIt Servo</td></tr>
+<tr><td>/panda_hand_controller/joint_trajectory</td><td>JointTrajectory</td><td>gripper_relay_node</td><td>Panda gripper controller</td></tr>
+<tr><td>/planning_scene</td><td>PlanningScene</td><td>scene_objects_node, demo_manipulation_object_node</td><td>MoveIt</td></tr>
+<tr><td>/teleop/scene_markers</td><td>MarkerArray</td><td>scene_objects_node</td><td>RViz</td></tr>
+<tr><td>/teleop/manipulation_object_markers</td><td>MarkerArray</td><td>demo_manipulation_object_node</td><td>RViz</td></tr>
+</table>
+
+<h3>7.2 webcam_teleop_node — Main Teleop Publisher</h3>
+
+<p>Runs at <strong>30 Hz</strong>. Each timer callback:</p>
+
+<p>1. Reads webcam frame (flipped)</p>
+<p>2. Runs HandTracker.process()</p>
+<p>3. If <strong>no right hand</strong> → publishes zero velocity + gripper open (safety stop)</p>
+<p>4. Maps wrist → TeleopCommand via HandToTwistMapper</p>
+<p>5. Adds keyboard depth: <strong>W</strong> = +vx, <strong>S</strong> = −vx (default 0.12 m/s)</p>
+<p>6. Publishes TwistStamped and Bool gripper message</p>
+<p>7. Shows OpenCV GUI with overlay</p>
+
+<p><strong>Safety:</strong> Hand loss immediately stops the robot.</p>
+
+<h3>7.3 virtual_ee_simulator_node — Simple 3D Simulator</h3>
+
+<p>Integrates velocity into position using <strong>Euler integration</strong>:</p>
+
+<pre><code class="">
+p(t + dt) = p(t) + v * dt
+</code></pre>
+
+<p>Where p = [x, y, z], v = [vx, vy, vz].</p>
+
+<p><strong>Workspace clipping</strong> keeps the virtual gripper inside bounds:</p>
+
+<table>
+<tr><th>Axis</th><th>Min</th><th>Max</th></tr>
+<tr><td>x</td><td>0.20</td><td>0.75</td></tr>
+<tr><td>y</td><td>−0.45</td><td>0.45</td></tr>
+<tr><td>z</td><td>0.10</td><td>0.75</td></tr>
+</table>
+
+<p>Initial position: (0.45, 0.0, 0.35) meters in base_link/map frame.</p>
+
+<p>Publishes a green sphere marker for RViz visualization — <strong>no real robot kinematics</strong>.</p>
+
+<h3>7.4 servo_twist_relay_node — Bridge to MoveIt Servo</h3>
+
+<p>Pipeline: Raw twist → Scale → Speed limit → Timeout check → Low-pass → Accel limit → Publish</p>
+
+<p><strong>1. Scaling:</strong> v_raw = scale * v_input, scale = 0.35 (default)</p>
+
+<p><strong>2. Speed vector limiting</strong> (preserve direction, cap magnitude):</p>
+<pre><code class="">
+if ||v|| &gt; v_max:  v &lt;- v * (v_max / ||v||)
+</code></pre>
+<p>Default v_max = 0.08 m/s.</p>
+
+<p><strong>3. Deadman timeout:</strong> If no input for 0.25 s → target velocity = 0.</p>
+
+<p><strong>4. Low-pass smoothing</strong> (alpha = 0.25).</p>
+
+<p><strong>5. Acceleration limiting</strong> (per axis):</p>
+<pre><code class="">
+delta_v_max = a_max * dt,  a_max = 0.25 m/s^2
+v_out = v_prev + clip(v_target - v_prev, -delta_v_max, delta_v_max)
+</code></pre>
+
+<p>Output frame: panda_link0 (Panda base).</p>
+
+<h3>7.5 gripper_relay_node — Pinch → Panda Gripper</h3>
+
+<p>Subscribes to /teleop/right_gripper/close and publishes JointTrajectory to /panda_hand_controller/joint_trajectory.</p>
+
+<table>
+<tr><th>State</th><th>Finger joint positions</th></tr>
+<tr><td>Open</td><td>0.04 m (each finger)</td></tr>
+<tr><td>Closed</td><td>0.0 m</td></tr>
+</table>
+
+<p>Only publishes on <strong>state change</strong> (edge-triggered, not continuous).</p>
+
+<h3>7.6 scene_objects_node — Static Pick-and-Place Scene</h3>
+
+<table>
+<tr><th>Object</th><th>Size (m)</th><th>Position (x,y,z)</th><th>Collision?</th></tr>
+<tr><td>Table</td><td>0.80 x 0.60 x 0.04</td><td>(0.55, 0.00, −0.04)</td><td>Yes</td></tr>
+<tr><td>Pick cube</td><td>0.05 x 0.05 x 0.05</td><td>(0.50, 0.22, 0.04)</td><td>Yes</td></tr>
+<tr><td>Place zone</td><td>0.12 x 0.12 x 0.01</td><td>(0.50, −0.22, 0.015)</td><td>No (visual only)</td></tr>
+</table>
+
+<p>Frame: panda_link0.</p>
+
+<h3>7.7 demo_manipulation_object_node — Simulated Grasp/Release</h3>
+
+<p><strong>Grasp logic (rising edge on pinch + proximity):</strong></p>
+<pre><code class="">
+attach if: not prev_closed AND closed AND not attached AND ||p_gripper - p_object|| &lt;= 0.16 m
+</code></pre>
+
+<p><strong>Release logic (falling edge on pinch):</strong></p>
+<pre><code class="">
+detach if: prev_closed AND not closed AND attached
+</code></pre>
+
+<p>On attach: remove from world, add as AttachedCollisionObject on panda_hand link, object follows gripper via TF.</p>
+
+<p>On detach: remove attached object, re-add to world at current gripper-relative position.</p>
+
+<p>Uses <strong>TF2</strong> to look up panda_link0 → panda_hand transform.</p>
+
+<hr>
+
+<h2>8. Robot Control — MoveIt Servo Mathematics</h2>
+
+<p>When connected to the real Panda simulation, MoveIt Servo solves <strong>inverse kinematics at velocity level</strong>.</p>
+
+<p>Given end-effector twist command v_ee = [x_dot, y_dot, z_dot, omega_x, omega_y, omega_z], Servo computes joint velocities via the <strong>Jacobian</strong>:</p>
+
+<pre><code class="">
+q_dot = J_dagger(q) * v_ee
+</code></pre>
+
+<p>Where J is the 6x7 manipulator Jacobian and J_dagger is its pseudo-inverse (with singularity handling).</p>
+
+<p>This project sends <strong>linear velocity only</strong> (angular = 0), so only the first 3 rows of the Jacobian matter for translation.</p>
+
+<p>MoveIt Servo also provides:</p>
+<ul><li><strong>Collision checking</strong> — stops motion if collision detected</li>
+<li><strong>Singularity handling</strong> — slows near singular configurations</li>
+<li><strong>Joint limit enforcement</strong></li>
+</ul>
+<p>Command type must be switched to <strong>Twist</strong> mode:</p>
+<pre><code class="bash">
+ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType &quot;{command_type: 1}&quot;
+</code></pre>
+
+<hr>
+
+<h2>9. Three Operating Modes</h2>
+
+<h3>Mode 1: Standalone Hand Tracking (No ROS)</h3>
+
+<pre><code class="bash">
+python scripts/run_hand_tracking.py [--record] [--camera 1]
+</code></pre>
+
+<p>Tests vision pipeline only. Shows OpenCV window with landmarks, command arrow, gripper state.</p>
+
+<h3>Mode 2: Virtual End-Effector (ROS, No Robot)</h3>
+
+<p><strong>Terminal 1:</strong> ros2 run vdat_teleop webcam_teleop_node</p>
+<p><strong>Terminal 2:</strong> ros2 run vdat_teleop virtual_ee_simulator_node</p>
+<p><strong>Terminal 3:</strong> rviz2 → add Marker on /teleop/right_arm/ee_marker, Fixed Frame = map</p>
+
+<p>A green sphere moves in 3D space following your hand.</p>
+
+<h3>Mode 3: Full Panda Demo (MoveIt Servo)</h3>
+
+<p><strong>Terminal 1:</strong> ros2 launch moveit_servo demo_ros_api.launch.py</p>
+<p><strong>Terminal 2:</strong> Switch to twist mode (service call above)</p>
+<p><strong>Terminal 3:</strong> ros2 run vdat_teleop webcam_teleop_node</p>
+<p><strong>Terminal 4:</strong> ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.35</p>
+
+<p>Optional: gripper_relay_node, scene_objects_node, demo_manipulation_object_node</p>
+
+<hr>
+
+<h2>10. Control Mapping Summary</h2>
+
+<table>
+<tr><th>Human Action</th><th>Robot Response</th></tr>
+<tr><td>Move right hand <strong>left/right</strong></td><td>End-effector ±Y velocity</td></tr>
+<tr><td>Move right hand <strong>up/down</strong></td><td>End-effector ±Z velocity</td></tr>
+<tr><td>Hold <strong>W</strong> key</td><td>End-effector +X (forward)</td></tr>
+<tr><td>Hold <strong>S</strong> key</td><td>End-effector −X (backward)</td></tr>
+<tr><td><strong>Pinch</strong> thumb+index</td><td>Gripper close signal</td></tr>
+<tr><td><strong>Release pinch</strong></td><td>Gripper open signal</td></tr>
+<tr><td><strong>Right hand lost</strong></td><td>All velocities → 0 (safety stop)</td></tr>
+<tr><td>Press <strong>q</strong></td><td>Quit</td></tr>
+</table>
+
+<hr>
+
+<h2>11. Key Parameters Reference</h2>
+
+<table>
+<tr><th>Parameter</th><th>Location</th><th>Default</th><th>Meaning</th></tr>
+<tr><td>pinch_threshold</td><td>GestureDetector</td><td>0.055</td><td>Normalized distance for pinch</td></tr>
+<tr><td>deadband</td><td>HandToTwistMapper</td><td>0.06</td><td>Center dead zone</td></tr>
+<tr><td>max_speed</td><td>HandToTwistMapper</td><td>0.20 m/s</td><td>Max teleop velocity</td></tr>
+<tr><td>alpha</td><td>LowPassFilter</td><td>0.25</td><td>Smoothing factor</td></tr>
+<tr><td>depth_speed</td><td>webcam_teleop_node</td><td>0.12 m/s</td><td>Keyboard forward/back speed</td></tr>
+<tr><td>scale</td><td>servo_twist_relay_node</td><td>0.35</td><td>Input scaling for Servo</td></tr>
+<tr><td>max_linear_speed</td><td>servo_twist_relay_node</td><td>0.08 m/s</td><td>Servo speed cap</td></tr>
+<tr><td>max_linear_accel</td><td>servo_twist_relay_node</td><td>0.25 m/s²</td><td>Acceleration limit</td></tr>
+<tr><td>command_timeout_sec</td><td>servo_twist_relay_node</td><td>0.25 s</td><td>Deadman timeout</td></tr>
+<tr><td>grasp_distance_threshold</td><td>demo_manipulation_object_node</td><td>0.16 m</td><td>Max distance to grasp</td></tr>
+</table>
+
+<hr>
+
+<h2>12. Data Flow Timeline (One Frame, ~33 ms @ 30 Hz)</h2>
+
+<pre><code class="">
+t=0ms    Webcam captures BGR frame
+t=1ms    Flip horizontally, convert to RGB
+t=5ms    MediaPipe inference → 21 landmarks
+t=6ms    GestureDetector → pinch distance
+t=7ms    LowPassFilter → smoothed wrist position
+t=8ms    HandToTwistMapper → (vx, vy, vz, gripper)
+t=9ms    Add keyboard depth to vx
+t=10ms   Publish TwistStamped + Bool to ROS topics
+t=11ms   servo_twist_relay receives, scales, smooths
+t=12ms   MoveIt Servo receives delta_twist_cmds
+t=15ms   Jacobian IK → joint velocities
+t=20ms   Panda model updates in RViz
+t=33ms   Next frame
+</code></pre>
+
+<hr>
+
+<h2>13. Limitations and Future Work</h2>
+
+<table>
+<tr><th>Current Limitation</th><th>Planned Fix</th></tr>
+<tr><td>Only <strong>right hand</strong> controls robot</td><td>Dual-arm: left hand → left arm</td></tr>
+<tr><td>Depth via <strong>keyboard W/S</strong>, not hand</td><td>Use hand size as depth proxy</td></tr>
+<tr><td><strong>No real physics</strong> for pick-place</td><td>Integrate Gazebo or Isaac Sim</td></tr>
+<tr><td>Pinch = binary gripper</td><td>Continuous gripper force from pinch distance</td></tr>
+<tr><td>Normalized coords, not metric</td><td>Hand-eye calibration for absolute positioning</td></tr>
+<tr><td>Single camera</td><td>External/stereo camera for better depth</td></tr>
+<tr><td>CSV recording only</td><td>Add rosbag2 recording with joint states + images</td></tr>
+</table>
+
+<hr>
+
+<h2>14. FAQ — Questions You Should Be Able to Answer</h2>
+
+<p><strong>Q: Why velocity control instead of absolute position mapping?</strong></p>
+<p>A: Velocity control is more intuitive (move hand = robot moves), robust to calibration drift, and matches MoveIt Servo&#x27;s primary interface. Absolute mapping would require precise hand-eye calibration.</p>
+
+<p><strong>Q: Why is the image flipped?</strong></p>
+<p>A: Mirror effect — when you move your hand right, the on-screen hand moves right, matching natural expectation.</p>
+
+<p><strong>Q: What happens if I lose my hand from the camera view?</strong></p>
+<p>A: webcam_teleop_node publishes zero velocity immediately. servo_twist_relay_node also has a 0.25 s timeout that zeros commands if messages stop.</p>
+
+<p><strong>Q: Why do we need servo_twist_relay_node? Why not connect webcam directly to Servo?</strong></p>
+<p>A: The relay adds scaling (webcam commands are too fast for Servo), acceleration limiting (prevents jerky motion), speed capping, smoothing, and deadman timeout — all critical for safe real robot control.</p>
+
+<p><strong>Q: What coordinate frame does the Panda use?</strong></p>
+<p>A: panda_link0 is the robot base. End-effector is panda_hand. MoveIt Servo expects twist commands in the frame specified in the message header.</p>
+
+<p><strong>Q: How does pinch map to gripper close?</strong></p>
+<p>A: Direct boolean: is_pinching = (thumb-index distance &lt; 0.055). No hysteresis currently — rapid toggling near threshold could flicker.</p>
+
+<p><strong>Q: What&#x27;s the difference between scene_objects_node and demo_manipulation_object_node?</strong></p>
+<p>A: scene_objects_node adds static table/cube/place-zone to the planning scene. demo_manipulation_object_node adds a dynamic object that attaches to the gripper on pinch+proximity and detaches on release.</p>
+
+<p><strong>Q: Can this data train a robot learning policy?</strong></p>
+<p>A: The CSV contains (observation: hand position + gesture, action: velocity + gripper). For IL you&#x27;d typically also need robot joint states, camera images, and object poses — which would require extending the recorder to subscribe to ROS topics.</p>
+
+<p><strong>Q: Why MediaPipe 0.10.14 specifically?</strong></p>
+<p>A: Newer MediaPipe versions removed the mp.solutions API. Version 0.10.14 is the last compatible version with the current code structure.</p>
+
+<p><strong>Q: What&#x27;s the 7-day roadmap status?</strong></p>
+<p>A: Days 1–5 are implemented (tracking, mapping, ROS publisher, Servo connection, gripper). Day 6 (dual-arm) is partially planned (architecture supports it via separate left/right topics). Day 7 (polish/video) is ongoing.</p>
+
+<hr>
+
+<h2>15. Quick Command Cheat Sheet</h2>
+
+<pre><code class="bash">
+# Environment (always needed)
+source /opt/ros/jazzy/setup.bash
+source ros2_ws/install/setup.bash
+source .venv/bin/activate
+export PYTHONPATH=$PWD:$PYTHONPATH
+
+# Standalone tracking
+python scripts/run_hand_tracking.py --record
+
+# ROS teleop only
+ros2 run vdat_teleop webcam_teleop_node
+
+# Virtual EE demo
+ros2 run vdat_teleop virtual_ee_simulator_node
+
+# Full Panda demo
+ros2 launch moveit_servo demo_ros_api.launch.py
+ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType &quot;{command_type: 1}&quot;
+ros2 run vdat_teleop webcam_teleop_node
+ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.35
+
+# Debug
+ros2 topic echo /teleop/right_arm/twist_cmd
+ros2 topic echo /servo_node/delta_twist_cmds
+ros2 topic echo /servo_node/status
+</code></pre>
+
+<hr>
+
+<p>*End of Version 1 — Vision Dual-Arm Teleoperation Project Guide*</p>
+</body>
+</html>

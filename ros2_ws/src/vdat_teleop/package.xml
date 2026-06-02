@@ -2,17 +2,21 @@
 <package format="3">
   <name>vdat_teleop</name>
   <version>0.0.1</version>
-  <description>Vision-based teleoperation publisher for robot arm control.</description>
-  <maintainer email="sghogare1498@gmail.com">Shubham Ghogare</maintainer>
+  <description>Vision-based teleoperation package for Panda MoveIt Servo demos.</description>
+
+  <maintainer email="shubham.ghogare14@gmail.com">Shubham Ghogare</maintainer>
   <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>visualization_msgs</depend>
+  <depend>trajectory_msgs</depend>
   <depend>moveit_msgs</depend>
   <depend>shape_msgs</depend>
-  <depend>trajectory_msgs</depend>
+  <depend>tf2_ros</depend>
 
   <exec_depend>python3-opencv</exec_depend>
 
