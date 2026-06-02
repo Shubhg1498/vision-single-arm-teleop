@@ -4,6 +4,8 @@ import os
 
 package_name = "vdat_teleop"
 
+hook_files = glob("hook/*")
+
 setup(
     name=package_name,
     version="0.0.1",
@@ -12,6 +14,7 @@ setup(
         ("share/ament_index/resource_index/packages", [f"resource/{package_name}"]),
         (f"share/{package_name}", ["package.xml"]),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
+        (os.path.join("share", package_name, "hook"), hook_files),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

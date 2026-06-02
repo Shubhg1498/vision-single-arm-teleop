@@ -15,23 +15,42 @@ Reason:
 ### Phase 1: Franka Emika Panda
 Use Panda for the first working single-arm demo.
 
-Reason:
-- It is widely used in MoveIt tutorials.
-- Existing MoveIt configs are easier to use.
-- Good for showing gripper control and pick/place.
-
 ### Phase 2: Dual Panda or Dual UR5e
-For dual-arm control, use either:
-1. Dual Panda setup for easier manipulation demo.
-2. Dual UR5e setup for a more industrial-looking demo.
+For dual-arm control, use either dual Panda or dual UR5e.
 
-Recommendation:
-- Start with Panda.
-- Move to dual Panda once single-arm teleoperation is stable.
-- Consider UR5e later if you want a stronger industrial robotics portfolio angle.
+---
 
-## Why not Isaac Sim first?
+## Phase 3: Real Physics (Gazebo Harmonic) — DONE (teleop)
 
-Isaac Sim is powerful, especially for photorealistic robotics simulation, but it adds setup complexity.
-For a one-week demo, MoveIt + RViz is faster and more reliable.
-Isaac Sim can be a future extension.
+The MVP used MoveIt + RViz with **fake grasp** (`demo_manipulation_object_node`).
+
+**Gazebo Harmonic + gz_ros2_control** is now the primary simulation backend for teleop.
+
+See:
+- [gazebo_install.md](gazebo_install.md) — install + **final run command**
+- [gazebo_simulation.md](gazebo_simulation.md) — architecture + roadmap
+
+### Final command (Gazebo teleop)
+
+```bash
+cd ~/vision_dual_arm_teleop/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source ~/vision_dual_arm_teleop/.venv/bin/activate
+source source_ws.bash
+export VDAT_REPO=~/vision_dual_arm_teleop
+export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
+
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
+```
+
+### Launch files
+
+| Launch file | Simulation | Physics |
+|-------------|-----------|---------|
+| `demo_pick_place.launch.py` | MoveIt fake hardware + RViz | Fake (collision attach) |
+| `vdat_gazebo/panda_pick_place.launch.py` | Gazebo + Panda + world | Real (no teleop) |
+| `demo_pick_place_gazebo.launch.py` | Gazebo + Servo + teleop + gripper | Real |
+
+### Phase 4 (next)
+
+Physics grasp tuning — cube lift/slip after pinch (friction in SDF, not fake attach).

@@ -76,35 +76,57 @@ vision_dual_arm_teleop/
 │   └── recording/
 │       └── demo_recorder.py
 ├── ros2_ws/
+│   ├── source_ws.bash          # source this after build (not install/setup.bash alone)
 │   └── src/
-│       └── vdat_teleop/
-│           ├── package.xml
-│           ├── setup.py
-│           └── vdat_teleop/
-│               └── webcam_teleop_node.py
+│       ├── vdat_gazebo/        # Gazebo Panda + pick-place world
+│       └── vdat_teleop/        # teleop nodes + launch files
 ├── docs/
+├── gazebo/                     # Gazebo worlds + simulation assets
 ├── scripts/
 ├── videos/
 └── data/
 ```
 
+## Gazebo Simulation (real physics)
 
-## Commands
+Install once:
+
+```bash
+bash scripts/install_gazebo.sh
+```
+
+**Run the full teleop demo** (Gazebo + MoveIt Servo + webcam + gripper):
+
+```bash
+cd ~/vision_dual_arm_teleop/ros2_ws
+source /opt/ros/jazzy/setup.bash
+source ~/vision_dual_arm_teleop/.venv/bin/activate
+source source_ws.bash
+export VDAT_REPO=~/vision_dual_arm_teleop
+export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
+
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
+```
+
+Wait ~17 s for startup. Press **Play** in Gazebo. Webcam: hand motion → arm, W/S → depth, pinch → gripper.
+
+Docs: [docs/gazebo_install.md](docs/gazebo_install.md) · [docs/gazebo_simulation.md](docs/gazebo_simulation.md)
+
+## Commands (RViz fake-hardware demo)
 
 # Webcam
-cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+cd ~/vision_dual_arm_teleop/ros2_ws
 source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
-export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+source source_ws.bash
+source ~/vision_dual_arm_teleop/.venv/bin/activate
+export PYTHONPATH=~/vision_dual_arm_teleop:$PYTHONPATH
 
 ros2 run vdat_teleop webcam_teleop_node
 
 # ee_simulator
 
-#cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
 source /opt/ros/jazzy/setup.bash
-source install/setup.bash
+source ~/vision_dual_arm_teleop/ros2_ws/source_ws.bash
 
 ros2 run vdat_teleop virtual_ee_simulator_node
 

@@ -462,3 +462,38 @@ Demo controls:
   Pinch                       -> gripper close signal
   Release pinch               -> gripper open signal
   q                           -> quit webcam GUI
+
+
+13 RUN FULL DEMO (RViz fake hardware)
+
+cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+source /opt/ros/jazzy/setup.bash
+source source_ws.bash
+source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
+
+ros2 launch vdat_teleop demo_pick_place.launch.py
+
+
+14 FINAL — GAZEBO TELEOP DEMO (Phase C)
+
+cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
+
+source /opt/ros/jazzy/setup.bash
+source /home/shubham.ghogare/vision_dual_arm_teleop/.venv/bin/activate
+colcon build --packages-select vdat_gazebo vdat_teleop
+source source_ws.bash
+export VDAT_REPO=/home/shubham.ghogare/vision_dual_arm_teleop
+export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
+
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
+
+# Wait ~17 s. Press Play in Gazebo if paused.
+# Webcam: hand = arm XY, W/S = depth, pinch = close gripper, release = open
+# Optional: use_rviz:=false
+
+# Verify gripper (second terminal, while demo runs):
+ros2 action list | grep gripper
+ros2 action send_goal /panda_hand_controller/gripper_cmd control_msgs/action/GripperCommand \
+  "{command: {position: 0.0, max_effort: 20.0}}"
