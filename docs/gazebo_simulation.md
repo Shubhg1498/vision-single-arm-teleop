@@ -14,6 +14,7 @@ Install Gazebo first: [gazebo_install.md](gazebo_install.md)
 | B | Panda in pick-place world | Done |
 | C | MoveIt Servo + webcam teleop → Gazebo | Done |
 | D | Physics grasp tuning (friction, lift cube) | Next |
+| — | Scene cameras for teleop monitoring | Done |
 
 ---
 
@@ -46,6 +47,8 @@ webcam → HandToTwistMapper → webcam_teleop_node
          - Table + cube (real contact / friction / gravity)
 
 pinch → gripper_relay_node → /panda_hand_controller/gripper_cmd
+
+scene cameras → ros_gz_image → scene_camera_viewer_node (3-view monitor)
 ```
 
 **Not used in Gazebo demo:** `demo_manipulation_object_node`, `scene_objects_node`, fake `ros2_control_node`.
@@ -79,11 +82,52 @@ ros2_ws/source_ws.bash          # workspace setup (use this)
 
 ---
 
-## Phase D — Real pick-and-place (next)
+## Scene cameras (teleop views)
 
-1. Tune gripper finger + cube friction in Gazebo SDF
-2. Verify lift after pinch (cube moves with arm, not teleport attach)
-3. Optional: remove legacy fake-grasp nodes from RViz demo docs
+Three fixed cameras in `pick_place.sdf` give workspace views while you teleoperate:
+
+| Camera | ROS topic | Purpose |
+|--------|-----------|---------|
+| Overview | `/scene_camera_overview` | Robot + table |
+| Side | `/scene_camera_side` | Side approach angle |
+| Gripper | `/scene_camera_gripper` | Close-up on pick area |
+
+They are bridged with `ros_gz_image` and displayed in the **Scene Cameras (Teleop)** OpenCV window (starts ~8 s after launch).
+
+Single-camera view:
+
+```bash
+ros2 run rqt_image_view rqt_image_view /scene_camera_overview
+```
+
+Disable the viewer: `show_scene_cameras:=false`
+
+---
+
+## Phase D — Pick-and-place demo workflow
+
+Yes — with the current Gazebo setup you can pick the cube and place it elsewhere using **real physics** (no fake attach).
+
+### Controls
+
+| Input | Action |
+|-------|--------|
+| **Pinch** | Freeze arm (safe entry into frame) + close gripper |
+| **Open hand** | Move arm (XY from wrist) |
+| **W / S** | Move forward / back (depth) — only when **not** pinching |
+| **C** | Toggle **transport latch** — gripper stays closed while you move |
+
+### Demo sequence
+
+1. **Pinch** before entering the frame → arm frozen, safe entry.
+2. **Open hand** → move above the blue cube (use W/S to adjust depth).
+3. **Pinch** at the cube → gripper closes, arm freezes.
+4. Press **C** to latch the gripper closed.
+5. **Release pinch**, press **W** to lift the cube.
+6. **Open hand** → move to the drop location (gripper stays latched).
+7. Press **C** again to open and release the cube.
+
+If the cube slips, approach slower and ensure the pinch is centered on the block.
 
 ---
 

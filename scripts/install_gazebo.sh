@@ -7,6 +7,7 @@ PACKAGES=(
   ros-jazzy-ros-gz
   ros-jazzy-ros-gz-sim
   ros-jazzy-ros-gz-bridge
+  ros-jazzy-ros-gz-image
   ros-jazzy-gz-ros2-control
   ros-jazzy-gz-ros2-control-demos
   ros-jazzy-ros-gz-sim-demos
@@ -53,7 +54,7 @@ source /opt/ros/jazzy/setup.bash
 
 echo ""
 echo "ROS packages:"
-ros2 pkg list | grep -E '^(ros_gz_sim|ros_gz_bridge|gz_ros2_control)$' || true
+ros2 pkg list | grep -E '^(ros_gz_sim|ros_gz_bridge|ros_gz_image|gz_ros2_control)$' || true
 
 echo ""
 echo "Gazebo Sim version:"

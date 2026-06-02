@@ -27,6 +27,7 @@ from moveit_configs_utils import MoveItConfigsBuilder
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_rviz = LaunchConfiguration("use_rviz")
+    show_scene_cameras = LaunchConfiguration("show_scene_cameras")
     repo_path = LaunchConfiguration("repo_path")
 
     robot_controllers = PathJoinSubstitution(
@@ -71,7 +72,10 @@ def generate_launch_description():
                 )
             ]
         ),
-        launch_arguments={"use_sim_time": use_sim_time}.items(),
+        launch_arguments={
+            "use_sim_time": use_sim_time,
+            "enable_scene_cameras": show_scene_cameras,
+        }.items(),
     )
 
     rviz_config_file = os.path.join(
@@ -169,6 +173,25 @@ def generate_launch_description():
         ],
     )
 
+    scene_camera_viewer_node = Node(
+        package="vdat_teleop",
+        executable="scene_camera_viewer_node",
+        name="scene_camera_viewer_node",
+        output="screen",
+        parameters=[
+            {
+                "camera_topics": [
+                    "/scene_camera_overview",
+                    "/scene_camera_side",
+                    "/scene_camera_gripper",
+                ],
+                "labels": ["Overview", "Side", "Gripper"],
+                "display_scale": 0.55,
+            }
+        ],
+        condition=IfCondition(show_scene_cameras),
+    )
+
     default_repo = os.environ.get(
         "VDAT_REPO", "/home/shubham.ghogare/vision_dual_arm_teleop"
     )
@@ -177,6 +200,7 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("use_rviz", default_value="true"),
+            DeclareLaunchArgument("show_scene_cameras", default_value="true"),
             DeclareLaunchArgument("repo_path", default_value=default_repo),
             SetEnvironmentVariable(
                 name="PYTHONPATH",
@@ -193,5 +217,6 @@ def generate_launch_description():
             TimerAction(period=15.0, actions=[webcam_teleop_node]),
             TimerAction(period=16.0, actions=[servo_twist_relay_node]),
             TimerAction(period=17.0, actions=[gripper_relay_node]),
+            TimerAction(period=8.0, actions=[scene_camera_viewer_node]),
         ]
     )

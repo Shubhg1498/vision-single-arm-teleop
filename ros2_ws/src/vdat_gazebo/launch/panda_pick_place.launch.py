@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
@@ -11,6 +12,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     gz_args = LaunchConfiguration("gz_args")
+    enable_scene_cameras = LaunchConfiguration("enable_scene_cameras")
 
     robot_controllers = PathJoinSubstitution(
         [FindPackageShare("vdat_gazebo"), "config", "panda_gazebo_controllers.yaml"]
@@ -96,6 +98,18 @@ def generate_launch_description():
         output="screen",
     )
 
+    scene_camera_bridge = Node(
+        package="ros_gz_image",
+        executable="image_bridge",
+        arguments=[
+            "scene_camera_overview",
+            "scene_camera_side",
+            "scene_camera_gripper",
+        ],
+        output="screen",
+        condition=IfCondition(enable_scene_cameras),
+    )
+
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [PathJoinSubstitution([FindPackageShare("ros_gz_sim"), "launch", "gz_sim.launch.py"])]
@@ -107,8 +121,10 @@ def generate_launch_description():
         [
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("gz_args", default_value=""),
+            DeclareLaunchArgument("enable_scene_cameras", default_value="true"),
             gz_sim,
             bridge,
+            scene_camera_bridge,
             robot_state_publisher,
             gz_spawn_entity,
             RegisterEventHandler(

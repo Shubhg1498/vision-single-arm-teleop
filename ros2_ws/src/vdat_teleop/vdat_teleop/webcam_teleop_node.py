@@ -10,7 +10,10 @@ from vision_dual_arm_teleop.tracking.hand_tracker import HandTracker
 from vision_dual_arm_teleop.mapping.hand_to_twist import HandToTwistMapper
 
 
-def draw_command_overlay(frame, cmd=None, gripper_close=False, depth_mode_text=""):
+def draw_command_overlay(
+    frame, cmd=None, gripper_close=False, depth_mode_text="",
+    arm_frozen=False, gripper_latched=False,
+):
     h, w, _ = frame.shape
 
     center = (w // 2, h // 2)
@@ -61,7 +64,20 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False, depth_mode_text="
         )
 
     gripper_text = "GRIPPER: CLOSE" if gripper_close else "GRIPPER: OPEN"
+    if gripper_latched:
+        gripper_text += " (latched)"
     gripper_color = (0, 0, 255) if gripper_close else (0, 255, 0)
+
+    if arm_frozen:
+        cv2.putText(
+            frame,
+            "ARM XY FROZEN (pinch)",
+            (20, h - 130),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 165, 255),
+            2,
+        )
 
     cv2.putText(
         frame,
@@ -85,10 +101,10 @@ def draw_command_overlay(frame, cmd=None, gripper_close=False, depth_mode_text="
 
     cv2.putText(
         frame,
-        "Depth: hold W=forward, S=backward | q=quit",
+        "Pinch=freeze | Open hand=move | Pinch=close | C=transport latch | W/S=depth",
         (20, 35),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.65,
+        0.48,
         (255, 255, 0),
         2,
     )
@@ -129,6 +145,8 @@ class WebcamTeleopNode(Node):
 
         self.depth_vx = 0.0
         self.depth_mode_text = "Depth: STOP"
+        self.was_pinching = False
+        self.gripper_latched = False
 
         timer_period = 1.0 / self.publish_rate_hz
         self.timer = self.create_timer(timer_period, self.on_timer)
@@ -172,6 +190,10 @@ class WebcamTeleopNode(Node):
         elif key == ord("s"):
             self.depth_vx = -self.depth_speed
             self.depth_mode_text = "Depth: BACKWARD"
+        elif key == ord("c"):
+            self.gripper_latched = not self.gripper_latched
+            state = "LATCHED (hold object)" if self.gripper_latched else "UNLATCHED"
+            self.get_logger().info(f"Gripper transport latch: {state}")
         else:
             self.depth_vx = 0.0
             self.depth_mode_text = "Depth: STOP"
@@ -208,10 +230,24 @@ class WebcamTeleopNode(Node):
             return
 
         obs = observations["Right"]
-        cmd = self.mapper.map(obs.wrist_xy, obs.gesture.is_pinching)
+        is_pinching = obs.gesture.is_pinching
 
-        # Add keyboard depth command
-        cmd.vx = self.depth_vx
+        if is_pinching != self.was_pinching:
+            self.mapper.reset(obs.wrist_xy)
+        self.was_pinching = is_pinching
+
+        cmd = self.mapper.map(obs.wrist_xy, is_pinching)
+
+        # Pinch freezes all hand-driven motion so you can enter the frame safely.
+        if is_pinching:
+            cmd.vy = 0.0
+            cmd.vz = 0.0
+            cmd.vx = 0.0
+        else:
+            cmd.vx = self.depth_vx
+
+        gripper_close = is_pinching or self.gripper_latched
+        cmd.gripper_close = gripper_close
 
         twist_msg = TwistStamped()
         twist_msg.header.stamp = self.get_clock().now().to_msg()
@@ -235,8 +271,10 @@ class WebcamTeleopNode(Node):
         frame = draw_command_overlay(
             frame,
             cmd,
-            cmd.gripper_close,
+            gripper_close,
             self.depth_mode_text,
+            arm_frozen=is_pinching,
+            gripper_latched=self.gripper_latched,
         )
 
         cv2.imshow("ROS2 Webcam Teleop", frame)

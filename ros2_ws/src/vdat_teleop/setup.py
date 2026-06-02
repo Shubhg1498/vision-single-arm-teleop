@@ -31,6 +31,7 @@ setup(
         "gripper_relay_node = vdat_teleop.gripper_relay_node:main",
         "demo_pick_object_node = vdat_teleop.demo_pick_object_node:main",
         "demo_manipulation_object_node = vdat_teleop.demo_manipulation_object_node:main",
+        "scene_camera_viewer_node = vdat_teleop.scene_camera_viewer_node:main",
         ],
     },
 )

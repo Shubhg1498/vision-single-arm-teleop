@@ -108,9 +108,13 @@ export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 ```
 
-Wait ~17 s for startup. Press **Play** in Gazebo. Webcam: hand motion → arm, W/S → depth, pinch → gripper.
+Wait ~17 s for startup. Press **Play** in Gazebo.
 
-Docs: [docs/gazebo_install.md](docs/gazebo_install.md) · [docs/gazebo_simulation.md](docs/gazebo_simulation.md)
+**Windows:** webcam teleop (hand control) + **Scene Cameras** (3-view workspace monitor).
+
+**Controls:** open hand = move · pinch = freeze + close · **C** = transport latch · **W/S** = depth (when not pinching)
+
+Optional: `show_scene_cameras:=false` or `use_rviz:=false`
 
 ## Commands (RViz fake-hardware demo)
 

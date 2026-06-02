@@ -16,4 +16,14 @@
   <xacro:panda_gazebo_ros2_control
     initial_positions_file="$(arg initial_positions_file)"
     controllers_file="$(arg controllers_file)"/>
+
+  <!-- Higher friction on fingers for physics grasp -->
+  <gazebo reference="panda_leftfinger">
+    <mu1>1.5</mu1>
+    <mu2>1.5</mu2>
+  </gazebo>
+  <gazebo reference="panda_rightfinger">
+    <mu1>1.5</mu1>
+    <mu2>1.5</mu2>
+  </gazebo>
 </robot>

@@ -65,3 +65,7 @@ class HandToTwistMapper:
             vz=vz,
             gripper_close=gripper_close,
         )
+
+    def reset(self, wrist_xy: Tuple[float, float]) -> None:
+        """Reset smoothing state (e.g. when pinch freeze toggles)."""
+        self.filter.prev = wrist_xy

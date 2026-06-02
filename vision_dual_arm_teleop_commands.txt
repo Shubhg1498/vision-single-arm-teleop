@@ -490,10 +490,24 @@ export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 
 # Wait ~17 s. Press Play in Gazebo if paused.
-# Webcam: hand = arm XY, W/S = depth, pinch = close gripper, release = open
-# Optional: use_rviz:=false
+#
+# Controls:
+#   Pinch       = freeze arm + close gripper (enter frame safely)
+#   Open hand   = move arm (XY)
+#   W / S       = depth (only when NOT pinching)
+#   C           = toggle transport latch (hold object while moving)
+#
+# Pick-and-place demo:
+#   1. Pinch to enter frame safely
+#   2. Open hand, move above cube (W/S for depth)
+#   3. Pinch on cube to grasp
+#   4. Press C to latch gripper closed
+#   5. Release pinch, W to lift
+#   6. Open hand, move to drop location
+#   7. Press C to release cube
 
-# Verify gripper (second terminal, while demo runs):
-ros2 action list | grep gripper
-ros2 action send_goal /panda_hand_controller/gripper_cmd control_msgs/action/GripperCommand \
-  "{command: {position: 0.0, max_effort: 20.0}}"
+# Optional: disable scene camera viewer
+# ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py show_scene_cameras:=false
+#
+# View a single camera in rqt:
+# ros2 run rqt_image_view rqt_image_view /scene_camera_overview
