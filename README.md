@@ -1,4 +1,4 @@
-# Vision-Based Dual-Arm Teleoperation for Robotic Manipulation
+# Vision-Based Single-Arm Teleoperation for Robotic Manipulation
 
 Webcam hand tracking drives a simulated Franka Panda through ROS 2, MoveIt Servo, and Gazebo Harmonic. The pipeline maps human hand motion and gestures to end-effector velocity commands, with optional demonstration recording for imitation learning.
 
