@@ -1,11 +1,15 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import IncludeLaunchDescription, TimerAction, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    camera_index = LaunchConfiguration("camera_index")
+    camera_device = LaunchConfiguration("camera_device")
+    flip_horizontal = LaunchConfiguration("flip_horizontal")
     moveit_servo_demo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([
             FindPackageShare("moveit_servo"),
@@ -41,7 +45,9 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "camera_index": 0,
+                "camera_index": camera_index,
+                "camera_device": camera_device,
+                "flip_horizontal": flip_horizontal,
                 "publish_rate_hz": 30.0,
                 "depth_speed": 0.12,
             }
@@ -76,6 +82,17 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument("camera_index", default_value="0"),
+            DeclareLaunchArgument(
+                "camera_device",
+                default_value="",
+                description="Optional /dev/video path (overrides camera_index when set)",
+            ),
+            DeclareLaunchArgument(
+                "flip_horizontal",
+                default_value="true",
+                description="Mirror image horizontally (mirror-style teleop)",
+            ),
             moveit_servo_demo,
 
             # Wait a little for MoveIt/RViz/Servo to initialize.

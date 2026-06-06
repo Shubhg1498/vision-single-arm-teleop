@@ -72,9 +72,9 @@ ros2 pkg prefix vdat_gazebo vdat_teleop
 
 ---
 
-## Step 4 — Run the full Gazebo teleop demo (Phase C)
+## Step 4 — Run the full Gazebo teleop demo
 
-Single terminal — Gazebo + MoveIt Servo + webcam teleop + gripper:
+Single terminal — Gazebo + MoveIt Servo + webcam teleop + gripper + scene cameras:
 
 ```bash
 cd ~/vision_dual_arm_teleop/ros2_ws
@@ -87,11 +87,18 @@ export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 ```
 
+External USB camera (recommended):
+
+```bash
+python ~/vision_dual_arm_teleop/scripts/list_cameras.py
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py camera_device:=/dev/video4
+```
+
 Wait ~17 seconds for all nodes to start. Press **Play** in Gazebo if the sim is paused.
 
-**Webcam controls:** hand position → arm XY, W/S → forward/back, pinch → close gripper, release → open.
+**Controls:** open hand → arm XY · W/S → depth · pinch → freeze + close gripper · C → transport latch
 
-Optional: `use_rviz:=false` if you only want the Gazebo GUI.
+Optional: `use_rviz:=false` · `show_scene_cameras:=false`
 
 ---
 
@@ -136,6 +143,6 @@ ros2 action send_goal /panda_hand_controller/gripper_cmd control_msgs/action/Gri
 
 ## References
 
-- [gazebo_simulation.md](gazebo_simulation.md) — migration plan
+- [gazebo_simulation.md](gazebo_simulation.md) — architecture and pick-place workflow
 - [simulation_choice.md](simulation_choice.md) — project decisions
 - [gz_ros2_control](https://github.com/ros-controls/gz_ros2_control)

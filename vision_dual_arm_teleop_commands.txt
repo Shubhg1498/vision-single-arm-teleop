@@ -75,7 +75,11 @@ Output CSV:
 
 Run with external camera:
 
-  python scripts/run_hand_tracking.py --camera 1
+  python scripts/list_cameras.py
+  python scripts/run_hand_tracking.py --camera 4
+
+  # or by device path in ROS launch:
+  # ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py camera_device:=/dev/video4
 
 
 =========================================================
@@ -476,7 +480,7 @@ export PYTHONPATH=/home/shubham.ghogare/vision_dual_arm_teleop:$PYTHONPATH
 ros2 launch vdat_teleop demo_pick_place.launch.py
 
 
-14 FINAL — GAZEBO TELEOP DEMO (Phase C)
+14 FINAL — GAZEBO TELEOP DEMO
 
 cd /home/shubham.ghogare/vision_dual_arm_teleop/ros2_ws
 
@@ -489,6 +493,10 @@ export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 
+# External USB camera (recommended — Logitech C270 on /dev/video4):
+# python /home/shubham.ghogare/vision_dual_arm_teleop/scripts/list_cameras.py
+# ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py camera_device:=/dev/video4
+
 # Wait ~17 s. Press Play in Gazebo if paused.
 #
 # Controls:
@@ -496,6 +504,8 @@ ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 #   Open hand   = move arm (XY)
 #   W / S       = depth (only when NOT pinching)
 #   C           = toggle transport latch (hold object while moving)
+#
+# Scene cameras: Overview, Side, Gripper, Table Top (2x2 viewer)
 #
 # Pick-and-place demo:
 #   1. Pinch to enter frame safely
@@ -506,8 +516,10 @@ ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 #   6. Open hand, move to drop location
 #   7. Press C to release cube
 
-# Optional: disable scene camera viewer
-# ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py show_scene_cameras:=false
+# Optional launch args:
+#   show_scene_cameras:=false
+#   use_rviz:=false
+#   flip_horizontal:=false
 #
-# View a single camera in rqt:
-# ros2 run rqt_image_view rqt_image_view /scene_camera_overview
+# View a single scene camera:
+# ros2 run rqt_image_view rqt_image_view /scene_camera_table_top

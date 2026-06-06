@@ -1,6 +1,6 @@
 # Gazebo Simulation
 
-Real physics pick-and-place for the vision teleop project.
+Real physics pick-and-place for the vision teleop project. **Demo video recorded** — see [`videos/`](../videos/).
 
 ## Final command (full teleop demo)
 
@@ -13,6 +13,13 @@ export VDAT_REPO=~/vision_dual_arm_teleop
 export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 
 ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
+```
+
+External USB camera (Logitech C270 example):
+
+```bash
+python ~/vision_dual_arm_teleop/scripts/list_cameras.py
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py camera_device:=/dev/video4
 ```
 
 Use **`source_ws.bash`** — `install/setup.bash` alone does not register `vdat_teleop`.
@@ -39,8 +46,9 @@ ros2 launch vdat_gazebo panda_pick_place.launch.py
 ## Architecture
 
 ```
-webcam teleop → MoveIt Servo → gz_ros2_control → Gazebo Harmonic
+webcam (built-in or USB) → MoveIt Servo → gz_ros2_control → Gazebo Harmonic
 pinch → gripper_relay_node → GripperCommand action
+scene cameras (×4) → scene_camera_viewer_node
 ```
 
-Migration plan: [docs/gazebo_simulation.md](../docs/gazebo_simulation.md)
+Details: [docs/gazebo_simulation.md](../docs/gazebo_simulation.md)

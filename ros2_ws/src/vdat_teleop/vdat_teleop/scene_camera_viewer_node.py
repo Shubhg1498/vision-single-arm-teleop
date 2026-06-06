@@ -23,6 +23,40 @@ def image_msg_to_bgr(msg: Image):
     return arr.copy()
 
 
+def resize_to(tile: np.ndarray, width: int, height: int) -> np.ndarray:
+    if tile.shape[1] == width and tile.shape[0] == height:
+        return tile
+    return cv2.resize(tile, (width, height), interpolation=cv2.INTER_AREA)
+
+
+def hstack_tiles(tiles):
+    if len(tiles) == 1:
+        return tiles[0]
+    height = max(tile.shape[0] for tile in tiles)
+    width = sum(tile.shape[1] for tile in tiles)
+    row = np.full((height, width, 3), 20, dtype=np.uint8)
+    x = 0
+    for tile in tiles:
+        normalized = resize_to(tile, tile.shape[1], height)
+        row[:, x : x + normalized.shape[1]] = normalized
+        x += normalized.shape[1]
+    return row
+
+
+def vstack_tiles(rows):
+    if len(rows) == 1:
+        return rows[0]
+    width = max(row.shape[1] for row in rows)
+    height = sum(row.shape[0] for row in rows)
+    grid = np.full((height, width, 3), 20, dtype=np.uint8)
+    y = 0
+    for row in rows:
+        normalized = resize_to(row, width, row.shape[0])
+        grid[y : y + normalized.shape[0], :] = normalized
+        y += normalized.shape[0]
+    return grid
+
+
 class SceneCameraViewerNode(Node):
     def __init__(self):
         super().__init__("scene_camera_viewer_node")
@@ -46,6 +80,8 @@ class SceneCameraViewerNode(Node):
         topics = list(self.get_parameter("camera_topics").value)
         labels = list(self.get_parameter("labels").value)
         self.display_scale = float(self.get_parameter("display_scale").value)
+        self.tile_width = max(1, int(640 * self.display_scale))
+        self.tile_height = max(1, int(480 * self.display_scale))
 
         if len(labels) != len(topics):
             labels = [t.split("/")[-1] for t in topics]
@@ -73,46 +109,39 @@ class SceneCameraViewerNode(Node):
         if frame is not None:
             self.frames[topic] = frame
 
+    def _make_tile(self, frame, label: str) -> np.ndarray:
+        if frame is None:
+            tile = np.full((480, 640, 3), 20, dtype=np.uint8)
+            cv2.putText(
+                tile,
+                f"{label}: waiting...",
+                (10, 240),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (200, 200, 200),
+                2,
+            )
+        else:
+            tile = frame.copy()
+            cv2.rectangle(tile, (0, 0), (tile.shape[1] - 1, 28), (0, 0, 0), -1)
+            cv2.putText(
+                tile,
+                label,
+                (8, 20),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2,
+            )
+
+        return resize_to(tile, self.tile_width, self.tile_height)
+
     def _on_timer(self):
         tiles = []
         topic_list = list(self.frames.keys())
         for i, topic in enumerate(topic_list):
-            frame = self.frames[topic]
             label = self.labels[i] if i < len(self.labels) else topic
-
-            if frame is None:
-                tile = np.zeros((240, 320, 3), dtype=np.uint8)
-                cv2.putText(
-                    tile,
-                    f"{label}: waiting...",
-                    (10, 120),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.55,
-                    (200, 200, 200),
-                    1,
-                )
-            else:
-                tile = frame.copy()
-                cv2.rectangle(tile, (0, 0), (tile.shape[1] - 1, 28), (0, 0, 0), -1)
-                cv2.putText(
-                    tile,
-                    label,
-                    (8, 20),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 255),
-                    2,
-                )
-
-            if self.display_scale != 1.0:
-                tile = cv2.resize(
-                    tile,
-                    None,
-                    fx=self.display_scale,
-                    fy=self.display_scale,
-                    interpolation=cv2.INTER_AREA,
-                )
-            tiles.append(tile)
+            tiles.append(self._make_tile(self.frames[topic], label))
 
         if not tiles:
             return
@@ -120,31 +149,14 @@ class SceneCameraViewerNode(Node):
         if len(tiles) == 1:
             grid = tiles[0]
         elif len(tiles) == 2:
-            grid = np.hstack(tiles)
+            grid = hstack_tiles(tiles)
         elif len(tiles) == 3:
-            top = np.hstack(tiles[:2])
-            bottom = tiles[2]
-            if bottom.shape[1] < top.shape[1]:
-                pad = top.shape[1] - bottom.shape[1]
-                bottom = cv2.copyMakeBorder(
-                    bottom, 0, 0, 0, pad, cv2.BORDER_CONSTANT, value=(20, 20, 20)
-                )
-            elif bottom.shape[1] > top.shape[1]:
-                pad = bottom.shape[1] - top.shape[1]
-                top = cv2.copyMakeBorder(
-                    top, 0, 0, 0, pad, cv2.BORDER_CONSTANT, value=(20, 20, 20)
-                )
-            grid = np.vstack([top, bottom])
+            grid = vstack_tiles([hstack_tiles(tiles[:2]), tiles[2]])
         else:
             rows = []
             for i in range(0, len(tiles), 2):
-                row = tiles[i : i + 2]
-                if len(row) == 1:
-                    row.append(
-                        np.full(row[0].shape, 20, dtype=np.uint8),
-                    )
-                rows.append(np.hstack(row))
-            grid = np.vstack(rows)
+                rows.append(hstack_tiles(tiles[i : i + 2]))
+            grid = vstack_tiles(rows)
 
         cv2.imshow("Scene Cameras (Teleop)", grid)
         key = cv2.waitKey(1) & 0xFF

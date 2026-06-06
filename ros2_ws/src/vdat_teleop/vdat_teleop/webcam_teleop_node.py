@@ -1,4 +1,5 @@
 import cv2
+import platform
 
 import rclpy
 from rclpy.node import Node
@@ -112,15 +113,29 @@ def draw_command_overlay(
     return frame
 
 
+def open_camera(camera_index: int, camera_device: str = ""):
+    """Open a V4L2 camera by /dev/video path or numeric index."""
+    backend = cv2.CAP_V4L2 if platform.system() == "Linux" else cv2.CAP_ANY
+    source = camera_device.strip() if camera_device.strip() else int(camera_index)
+    cap = cv2.VideoCapture(source, backend)
+    if not cap.isOpened() and camera_device.strip():
+        cap = cv2.VideoCapture(source)
+    return cap, source
+
+
 class WebcamTeleopNode(Node):
     def __init__(self):
         super().__init__("webcam_teleop_node")
 
         self.declare_parameter("camera_index", 0)
+        self.declare_parameter("camera_device", "")
+        self.declare_parameter("flip_horizontal", True)
         self.declare_parameter("publish_rate_hz", 30.0)
         self.declare_parameter("depth_speed", 0.12)
 
-        self.camera_index = self.get_parameter("camera_index").value
+        self.camera_index = int(self.get_parameter("camera_index").value)
+        self.camera_device = str(self.get_parameter("camera_device").value)
+        self.flip_horizontal = bool(self.get_parameter("flip_horizontal").value)
         self.publish_rate_hz = self.get_parameter("publish_rate_hz").value
         self.depth_speed = self.get_parameter("depth_speed").value
 
@@ -136,9 +151,12 @@ class WebcamTeleopNode(Node):
             10,
         )
 
-        self.cap = cv2.VideoCapture(self.camera_index)
+        self.cap, camera_source = open_camera(self.camera_index, self.camera_device)
         if not self.cap.isOpened():
-            raise RuntimeError(f"Could not open camera index {self.camera_index}")
+            raise RuntimeError(
+                f"Could not open camera (index={self.camera_index}, "
+                f"device={self.camera_device!r})"
+            )
 
         self.tracker = HandTracker()
         self.mapper = HandToTwistMapper()
@@ -152,6 +170,8 @@ class WebcamTeleopNode(Node):
         self.timer = self.create_timer(timer_period, self.on_timer)
 
         self.get_logger().info("Webcam teleop node started.")
+        self.get_logger().info(f"Camera source: {camera_source}")
+        self.get_logger().info(f"Flip horizontal: {self.flip_horizontal}")
         self.get_logger().info("Publishing:")
         self.get_logger().info("  /teleop/right_arm/twist_cmd")
         self.get_logger().info("  /teleop/right_gripper/close")
@@ -206,7 +226,7 @@ class WebcamTeleopNode(Node):
             self.publish_stop()
             return
 
-        frame = cv2.flip(frame, 1)
+        frame = cv2.flip(frame, 1) if self.flip_horizontal else frame
         observations, results = self.tracker.process(frame)
 
         if "Right" not in observations:

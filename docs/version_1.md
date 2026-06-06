@@ -10,21 +10,32 @@ This document explains the **main aim**, **architecture**, **mathematics**, and 
 
 The project turns **human hand motion captured by a webcam** into **robot arm control commands**, with the long-term goal of recording demonstrations for **imitation learning (IL)** or **reinforcement learning (RL)**.
 
+### Project status (complete — v1 demo)
+
+The end-to-end demo is **working and recorded**:
+
+- Hand tracking + pinch gestures → MoveIt Servo → Gazebo physics
+- Pick-and-place with real gripper contact (transport latch, friction tuning)
+- Four scene cameras + external USB camera support
+- Demo video in `videos/`
+
+**Known limitation:** single-camera teleoperation is functional but difficult — XY from hand, depth from keyboard, no true 3D pose. A good architecture proof-of-concept; depth sensing or dual cameras would be the natural next step.
+
 ### MVP (Minimum Viable Product)
 
 ```
 Webcam → Hand tracking → Gesture detection → Velocity commands → Gripper open/close → CSV recording
 ```
 
-### Final Demo Goal
+### Final Demo Goal — achieved
 
-A video showing:
+Demo video recorded (`videos/`). The pipeline demonstrates:
 1. Real-time hand tracking
 2. Pinch gesture detection
 3. Hand motion mapped to end-effector velocity
-4. Simulated robot arm moving (Panda via MoveIt Servo)
-5. Pick-and-place attempt
-6. Demonstration data saved to CSV
+4. Simulated Panda arm in Gazebo via MoveIt Servo
+5. Physics-based pick-and-place attempt
+6. Optional demonstration CSV recording
 
 ### Why This Architecture?
 
@@ -474,14 +485,14 @@ A: Direct boolean: is_pinching = (thumb-index distance < 0.055). No hysteresis c
 **Q: What's the difference between scene_objects_node and demo_manipulation_object_node?**
 A: scene_objects_node adds static table/cube/place-zone to the planning scene. demo_manipulation_object_node adds a dynamic object that attaches to the gripper on pinch+proximity and detaches on release.
 
+**Q: What's the project status?**
+A: v1 is complete. Single-arm Panda teleop works in Gazebo with real physics, scene cameras, external USB camera, and a recorded demo video. Dual-arm, depth sensing, and IL dataset recording are future work. Single-camera teleop is a solid first step but operationally challenging.
+
 **Q: Can this data train a robot learning policy?**
 A: The CSV contains (observation: hand position + gesture, action: velocity + gripper). For IL you'd typically also need robot joint states, camera images, and object poses — which would require extending the recorder to subscribe to ROS topics.
 
 **Q: Why MediaPipe 0.10.14 specifically?**
 A: Newer MediaPipe versions removed the mp.solutions API. Version 0.10.14 is the last compatible version with the current code structure.
-
-**Q: What's the 7-day roadmap status?**
-A: Days 1–5 are implemented (tracking, mapping, ROS publisher, Servo connection, gripper). Day 6 (dual-arm) is partially planned (architecture supports it via separate left/right topics). Day 7 (polish/video) is ongoing.
 
 ---
 
@@ -490,29 +501,32 @@ A: Days 1–5 are implemented (tracking, mapping, ROS publisher, Servo connectio
 ```bash
 # Environment (always needed)
 source /opt/ros/jazzy/setup.bash
-source ros2_ws/install/setup.bash
+source ros2_ws/source_ws.bash
 source .venv/bin/activate
-export PYTHONPATH=$PWD:$PYTHONPATH
+export VDAT_REPO=$PWD
+export PYTHONPATH=$VDAT_REPO:$PYTHONPATH
 
 # Standalone tracking
 python scripts/run_hand_tracking.py --record
+python scripts/list_cameras.py
+
+# Full Gazebo teleop demo (primary)
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
+ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py camera_device:=/dev/video4
 
 # ROS teleop only
-ros2 run vdat_teleop webcam_teleop_node
+ros2 run vdat_teleop webcam_teleop_node --ros-args -p camera_device:=/dev/video4
 
 # Virtual EE demo
 ros2 run vdat_teleop virtual_ee_simulator_node
 
-# Full Panda demo
-ros2 launch moveit_servo demo_ros_api.launch.py
-ros2 service call /servo_node/switch_command_type moveit_msgs/srv/ServoCommandType "{command_type: 1}"
-ros2 run vdat_teleop webcam_teleop_node
-ros2 run vdat_teleop servo_twist_relay_node --ros-args -p scale:=0.35
+# RViz fake-hardware demo
+ros2 launch vdat_teleop demo_pick_place.launch.py
 
 # Debug
 ros2 topic echo /teleop/right_arm/twist_cmd
 ros2 topic echo /servo_node/delta_twist_cmds
-ros2 topic echo /servo_node/status
+ros2 run rqt_image_view rqt_image_view /scene_camera_table_top
 ```
 
 ---

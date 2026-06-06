@@ -28,6 +28,9 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     use_rviz = LaunchConfiguration("use_rviz")
     show_scene_cameras = LaunchConfiguration("show_scene_cameras")
+    camera_index = LaunchConfiguration("camera_index")
+    camera_device = LaunchConfiguration("camera_device")
+    flip_horizontal = LaunchConfiguration("flip_horizontal")
     repo_path = LaunchConfiguration("repo_path")
 
     robot_controllers = PathJoinSubstitution(
@@ -132,7 +135,9 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "camera_index": 0,
+                "camera_index": camera_index,
+                "camera_device": camera_device,
+                "flip_horizontal": flip_horizontal,
                 "publish_rate_hz": 30.0,
                 "depth_speed": 0.12,
             }
@@ -202,6 +207,17 @@ def generate_launch_description():
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("use_rviz", default_value="true"),
             DeclareLaunchArgument("show_scene_cameras", default_value="true"),
+            DeclareLaunchArgument("camera_index", default_value="0"),
+            DeclareLaunchArgument(
+                "camera_device",
+                default_value="",
+                description="Optional /dev/video path (overrides camera_index when set)",
+            ),
+            DeclareLaunchArgument(
+                "flip_horizontal",
+                default_value="true",
+                description="Mirror image horizontally (mirror-style teleop)",
+            ),
             DeclareLaunchArgument("repo_path", default_value=default_repo),
             SetEnvironmentVariable(
                 name="PYTHONPATH",

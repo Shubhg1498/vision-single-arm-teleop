@@ -1,36 +1,34 @@
 # Simulation and Robot Choice
 
-## MVP Simulation Choice
+## Phase 1 — RViz + MoveIt Servo (done)
 
-Use ROS2 + MoveIt 2 + MoveIt Servo + RViz first.
+Used ROS 2 + MoveIt 2 + MoveIt Servo + RViz for the first working teleop loop.
 
-Reason:
-- The first demo needs real-time end-effector teleoperation, not photorealistic simulation.
-- MoveIt Servo accepts end-effector velocity commands, desired poses, or joint velocity commands.
-- It also provides safety features such as collision checking and singularity handling.
-- RViz is enough for the first video milestone.
+- Real-time end-effector velocity control without photorealistic sim
+- MoveIt Servo: collision checking, singularity handling
+- RViz sufficient for validating the vision → command pipeline
 
-## Robot Choice
-
-### Phase 1: Franka Emika Panda
-Use Panda for the first working single-arm demo.
-
-### Phase 2: Dual Panda or Dual UR5e
-For dual-arm control, use either dual Panda or dual UR5e.
+**Fake grasp:** `demo_manipulation_object_node` attaches objects in the planning scene on proximity.
 
 ---
 
-## Phase 3: Real Physics (Gazebo Harmonic) — DONE (teleop)
+## Phase 2 — Robot choice (done for single-arm)
 
-The MVP used MoveIt + RViz with **fake grasp** (`demo_manipulation_object_node`).
+**Franka Emika Panda** — well-documented MoveIt config, gripper demos, gz_ros2_control support.
 
-**Gazebo Harmonic + gz_ros2_control** is now the primary simulation backend for teleop.
+Dual Panda or dual UR5e remain options for a future dual-arm extension.
+
+---
+
+## Phase 3 — Gazebo Harmonic (done)
+
+**Gazebo Harmonic + gz_ros2_control** is the primary simulation backend for teleop and the recorded demo.
 
 See:
-- [gazebo_install.md](gazebo_install.md) — install + **final run command**
-- [gazebo_simulation.md](gazebo_simulation.md) — architecture + roadmap
+- [gazebo_install.md](gazebo_install.md)
+- [gazebo_simulation.md](gazebo_simulation.md)
 
-### Final command (Gazebo teleop)
+### Final command
 
 ```bash
 cd ~/vision_dual_arm_teleop/ros2_ws
@@ -51,6 +49,20 @@ ros2 launch vdat_teleop demo_pick_place_gazebo.launch.py
 | `vdat_gazebo/panda_pick_place.launch.py` | Gazebo + Panda + world | Real (no teleop) |
 | `demo_pick_place_gazebo.launch.py` | Gazebo + Servo + teleop + gripper | Real |
 
-### Phase 4 (next)
+---
 
-Physics grasp tuning — cube lift/slip after pinch (friction in SDF, not fake attach).
+## Phase 4 — What’s next
+
+| Priority | Item |
+|----------|------|
+| High | Depth sensing (stereo / RealSense) for easier 3D teleop |
+| High | Synchronized demonstration recording (robot state + images + commands) |
+| Medium | Physics grasp tuning — reliable cube lift without slip |
+| Medium | Dual-arm teleoperation |
+| Longer term | Real Franka hardware with validated safety limits |
+
+---
+
+## Why not Isaac Sim?
+
+Isaac Sim 5.1 segfaulted on this hardware (Blackwell GPU, driver 595). Gazebo Harmonic installs via apt on Ubuntu 24.04 + ROS 2 Jazzy and was sufficient for the project goals.
