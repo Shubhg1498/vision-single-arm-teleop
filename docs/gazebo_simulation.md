@@ -84,15 +84,16 @@ ros2_ws/source_ws.bash          # workspace setup (use this)
 
 ## Scene cameras (teleop views)
 
-Three fixed cameras in `pick_place.sdf` give workspace views while you teleoperate:
+Four fixed cameras in `pick_place.sdf` give workspace views while you teleoperate:
 
 | Camera | ROS topic | Purpose |
 |--------|-----------|---------|
 | Overview | `/scene_camera_overview` | Robot + table |
 | Side | `/scene_camera_side` | Side approach angle |
 | Gripper | `/scene_camera_gripper` | Close-up on pick area |
+| Table Top | `/scene_camera_table_top` | Top-down view of cube on table |
 
-They are bridged with `ros_gz_image` and displayed in the **Scene Cameras (Teleop)** OpenCV window (starts ~8 s after launch).
+They are bridged with `ros_gz_image` and displayed in the **Scene Cameras (Teleop)** OpenCV window as a 2×2 grid (starts ~8 s after launch).
 
 Single-camera view:
 

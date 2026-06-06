@@ -54,7 +54,7 @@ Two simulation backends share the same teleop nodes:
 
 - Panda URDF with **gz_ros2_control** (`GazeboSimSystem`) — arm + gripper on one controller manager inside Gazebo
 - Pick-place world: table, dynamic cube, tuned finger/cube friction
-- Three fixed **scene cameras** (overview, side, gripper) bridged to ROS via `ros_gz_image`
+- Four fixed **scene cameras** (overview, side, gripper, table top) bridged to ROS via `ros_gz_image`
 
 ---
 

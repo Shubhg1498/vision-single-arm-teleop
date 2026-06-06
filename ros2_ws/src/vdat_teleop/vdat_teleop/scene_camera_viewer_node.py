@@ -33,11 +33,12 @@ class SceneCameraViewerNode(Node):
                 "/scene_camera_overview",
                 "/scene_camera_side",
                 "/scene_camera_gripper",
+                "/scene_camera_table_top",
             ],
         )
         self.declare_parameter(
             "labels",
-            ["Overview", "Side", "Gripper"],
+            ["Overview", "Side", "Gripper", "Table Top"],
         )
         self.declare_parameter("display_scale", 0.55)
         self.declare_parameter("refresh_hz", 15.0)
@@ -120,7 +121,7 @@ class SceneCameraViewerNode(Node):
             grid = tiles[0]
         elif len(tiles) == 2:
             grid = np.hstack(tiles)
-        else:
+        elif len(tiles) == 3:
             top = np.hstack(tiles[:2])
             bottom = tiles[2]
             if bottom.shape[1] < top.shape[1]:
@@ -134,6 +135,16 @@ class SceneCameraViewerNode(Node):
                     top, 0, 0, 0, pad, cv2.BORDER_CONSTANT, value=(20, 20, 20)
                 )
             grid = np.vstack([top, bottom])
+        else:
+            rows = []
+            for i in range(0, len(tiles), 2):
+                row = tiles[i : i + 2]
+                if len(row) == 1:
+                    row.append(
+                        np.full(row[0].shape, 20, dtype=np.uint8),
+                    )
+                rows.append(np.hstack(row))
+            grid = np.vstack(rows)
 
         cv2.imshow("Scene Cameras (Teleop)", grid)
         key = cv2.waitKey(1) & 0xFF

@@ -184,9 +184,10 @@ def generate_launch_description():
                     "/scene_camera_overview",
                     "/scene_camera_side",
                     "/scene_camera_gripper",
+                    "/scene_camera_table_top",
                 ],
-                "labels": ["Overview", "Side", "Gripper"],
-                "display_scale": 0.55,
+                "labels": ["Overview", "Side", "Gripper", "Table Top"],
+                "display_scale": 0.48,
             }
         ],
         condition=IfCondition(show_scene_cameras),

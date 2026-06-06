@@ -105,6 +105,7 @@ def generate_launch_description():
             "scene_camera_overview",
             "scene_camera_side",
             "scene_camera_gripper",
+            "scene_camera_table_top",
         ],
         output="screen",
         condition=IfCondition(enable_scene_cameras),
