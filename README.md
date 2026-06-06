@@ -4,7 +4,10 @@ Webcam hand tracking drives a simulated Franka Panda through ROS 2, MoveIt Servo
 
 **Stack:** Ubuntu 24.04 · ROS 2 Jazzy · MoveIt 2 · Gazebo Harmonic · MediaPipe · OpenCV
 
-A **demo video** of the full pipeline (hand tracking → Gazebo teleop → pick-and-place) is in [`videos/`](videos/).
+### Demo video
+
+- **Portfolio (embedded player):** [shubhg1498.github.io/shubhg14981.github.io/#projects](https://shubhg1498.github.io/shubhg14981.github.io/#projects)
+- **Download (GitHub Release):** [teleop_demo_trimmed.mp4](https://github.com/Shubhg1498/vision-dual-arm-teleop/releases/download/v1.0.0/teleop_demo_trimmed.mp4) — create the release with [docs/publishing_demo.md](docs/publishing_demo.md)
 
 ---
 
@@ -218,6 +221,7 @@ vision_dual_arm_teleop/
 | [docs/gazebo_install.md](docs/gazebo_install.md) | Gazebo + ROS 2 install and troubleshooting |
 | [docs/gazebo_simulation.md](docs/gazebo_simulation.md) | Architecture, scene cameras, pick-and-place workflow |
 | [docs/simulation_choice.md](docs/simulation_choice.md) | RViz vs Gazebo decision record |
+| [docs/publishing_demo.md](docs/publishing_demo.md) | Upload demo video to GitHub Releases + portfolio |
 | [docs/version_1.md](docs/version_1.md) | Detailed project guide (math, nodes, Q&A) |
 
 ---
