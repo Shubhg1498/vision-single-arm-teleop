@@ -6,9 +6,7 @@ Webcam hand tracking drives a simulated Franka Panda through ROS 2, MoveIt Servo
 
 ### Demo video
 
-- **Portfolio (embedded player):** [shubhg1498.github.io/shubhg14981.github.io/#projects](https://shubhg1498.github.io/shubhg14981.github.io/#projects)
-- **Download (GitHub Release):** [teleop_demo_trimmed.mp4](https://github.com/Shubhg1498/vision-dual-arm-teleop/releases/download/v1.0.0/teleop_demo_trimmed.mp4) — create the release with [docs/publishing_demo.md](docs/publishing_demo.md)
-
+- **Download (GitHub Release):** [teleop_demo_trimmed.mp4](https://github.com/Shubhg1498/vision-dual-arm-teleop/releases/download/v1.0.0/teleop_demo_trimmed.mp4) 
 ---
 
 ## What was achieved
